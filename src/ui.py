@@ -140,11 +140,21 @@ def main() -> None:
         )
 
         if st.button("Predict matchup", type="primary"):
-            if selected not in option_match_ids:
-                selected_match = next(
-                    (m for m in schedule if str(m["match_number"]) == selected),
-                    None,
+            selected_match = next(
+                (m for m in schedule if str(m["match_number"]) == selected),
+                None,
+            )
+            if selected_match and selected_match.get("stage") == "group_stage":
+                st.success("Group stage matchup is fixed")
+                st.write(f"**{selected_match['matchup']}**")
+                st.write(
+                    f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
                 )
+                if selected_match["comment"]:
+                    st.write(f"Rule: {selected_match['comment']}")
+                return
+
+            if selected not in option_match_ids:
                 st.info(
                     "Prediction model data is not configured for this match yet. Showing actual schedule data."
                 )
