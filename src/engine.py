@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.models import MatchupCandidate, PredictionResponse
-from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+try:
+    from src.models import MatchupCandidate, PredictionResponse
+    from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+except ModuleNotFoundError:
+    from models import MatchupCandidate, PredictionResponse
+    from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 

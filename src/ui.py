@@ -5,7 +5,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.engine import MatchupPredictor
+try:
+    from src.engine import MatchupPredictor
+except ModuleNotFoundError:
+    from engine import MatchupPredictor
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 
-from src.engine import MatchupPredictor
-from src.models import PredictionRequest, PredictionResponse
+try:
+    from src.engine import MatchupPredictor
+    from src.models import PredictionRequest, PredictionResponse
+except ModuleNotFoundError:
+    from engine import MatchupPredictor
+    from models import PredictionRequest, PredictionResponse
 
 app = FastAPI(title="Which Matchup", version="0.1.0")
 predictor = MatchupPredictor()
