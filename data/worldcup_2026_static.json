@@ -1,0 +1,1553 @@
+{
+  "source": {
+    "schedule": "https://worldcuply.com/schedule.html",
+    "official_reference": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums"
+  },
+  "updated_at": "2026-05-25T20:48:04.340944+00:00",
+  "participants": [
+    {
+      "name": "Algeria",
+      "code3": "DZA",
+      "flag_url": "https://flagcdn.com/w40/dz.png",
+      "flag_local": "data/flags/dz.png"
+    },
+    {
+      "name": "Argentina",
+      "code3": "ARG",
+      "flag_url": "https://flagcdn.com/w40/ar.png",
+      "flag_local": "data/flags/ar.png"
+    },
+    {
+      "name": "Australia",
+      "code3": "AUS",
+      "flag_url": "https://flagcdn.com/w40/au.png",
+      "flag_local": "data/flags/au.png"
+    },
+    {
+      "name": "Austria",
+      "code3": "AUT",
+      "flag_url": "https://flagcdn.com/w40/at.png",
+      "flag_local": "data/flags/at.png"
+    },
+    {
+      "name": "Belgium",
+      "code3": "BEL",
+      "flag_url": "https://flagcdn.com/w40/be.png",
+      "flag_local": "data/flags/be.png"
+    },
+    {
+      "name": "Bosnia and Herzegovina",
+      "code3": "BIH",
+      "flag_url": "https://flagcdn.com/w40/ba.png",
+      "flag_local": "data/flags/ba.png"
+    },
+    {
+      "name": "Brazil",
+      "code3": "BRA",
+      "flag_url": "https://flagcdn.com/w40/br.png",
+      "flag_local": "data/flags/br.png"
+    },
+    {
+      "name": "Canada",
+      "code3": "CAN",
+      "flag_url": "https://flagcdn.com/w40/ca.png",
+      "flag_local": "data/flags/ca.png"
+    },
+    {
+      "name": "Cape Verde",
+      "code3": "CPV",
+      "flag_url": "https://flagcdn.com/w40/cv.png",
+      "flag_local": "data/flags/cv.png"
+    },
+    {
+      "name": "Colombia",
+      "code3": "COL",
+      "flag_url": "https://flagcdn.com/w40/co.png",
+      "flag_local": "data/flags/co.png"
+    },
+    {
+      "name": "Croatia",
+      "code3": "HRV",
+      "flag_url": "https://flagcdn.com/w40/hr.png",
+      "flag_local": "data/flags/hr.png"
+    },
+    {
+      "name": "Curaçao",
+      "code3": "CUW",
+      "flag_url": "https://flagcdn.com/w40/cw.png",
+      "flag_local": "data/flags/cw.png"
+    },
+    {
+      "name": "Czech Republic",
+      "code3": "CZE",
+      "flag_url": "https://flagcdn.com/w40/cz.png",
+      "flag_local": "data/flags/cz.png"
+    },
+    {
+      "name": "DR Congo",
+      "code3": "COD",
+      "flag_url": "https://flagcdn.com/w40/cd.png",
+      "flag_local": "data/flags/cd.png"
+    },
+    {
+      "name": "Ecuador",
+      "code3": "ECU",
+      "flag_url": "https://flagcdn.com/w40/ec.png",
+      "flag_local": "data/flags/ec.png"
+    },
+    {
+      "name": "Egypt",
+      "code3": "EGY",
+      "flag_url": "https://flagcdn.com/w40/eg.png",
+      "flag_local": "data/flags/eg.png"
+    },
+    {
+      "name": "England",
+      "code3": "ENG",
+      "flag_url": "https://flagcdn.com/w40/gb-eng.png",
+      "flag_local": "data/flags/gb-eng.png"
+    },
+    {
+      "name": "France",
+      "code3": "FRA",
+      "flag_url": "https://flagcdn.com/w40/fr.png",
+      "flag_local": "data/flags/fr.png"
+    },
+    {
+      "name": "Germany",
+      "code3": "DEU",
+      "flag_url": "https://flagcdn.com/w40/de.png",
+      "flag_local": "data/flags/de.png"
+    },
+    {
+      "name": "Ghana",
+      "code3": "GHA",
+      "flag_url": "https://flagcdn.com/w40/gh.png",
+      "flag_local": "data/flags/gh.png"
+    },
+    {
+      "name": "Haiti",
+      "code3": "HTI",
+      "flag_url": "https://flagcdn.com/w40/ht.png",
+      "flag_local": "data/flags/ht.png"
+    },
+    {
+      "name": "Iran",
+      "code3": "IRN",
+      "flag_url": "https://flagcdn.com/w40/ir.png",
+      "flag_local": "data/flags/ir.png"
+    },
+    {
+      "name": "Iraq",
+      "code3": "IRQ",
+      "flag_url": "https://flagcdn.com/w40/iq.png",
+      "flag_local": "data/flags/iq.png"
+    },
+    {
+      "name": "Ivory Coast",
+      "code3": "CIV",
+      "flag_url": "https://flagcdn.com/w40/ci.png",
+      "flag_local": "data/flags/ci.png"
+    },
+    {
+      "name": "Japan",
+      "code3": "JPN",
+      "flag_url": "https://flagcdn.com/w40/jp.png",
+      "flag_local": "data/flags/jp.png"
+    },
+    {
+      "name": "Jordan",
+      "code3": "JOR",
+      "flag_url": "https://flagcdn.com/w40/jo.png",
+      "flag_local": "data/flags/jo.png"
+    },
+    {
+      "name": "Mexico",
+      "code3": "MEX",
+      "flag_url": "https://flagcdn.com/w40/mx.png",
+      "flag_local": "data/flags/mx.png"
+    },
+    {
+      "name": "Morocco",
+      "code3": "MAR",
+      "flag_url": "https://flagcdn.com/w40/ma.png",
+      "flag_local": "data/flags/ma.png"
+    },
+    {
+      "name": "Netherlands",
+      "code3": "NLD",
+      "flag_url": "https://flagcdn.com/w40/nl.png",
+      "flag_local": "data/flags/nl.png"
+    },
+    {
+      "name": "New Zealand",
+      "code3": "NZL",
+      "flag_url": "https://flagcdn.com/w40/nz.png",
+      "flag_local": "data/flags/nz.png"
+    },
+    {
+      "name": "Norway",
+      "code3": "NOR",
+      "flag_url": "https://flagcdn.com/w40/no.png",
+      "flag_local": "data/flags/no.png"
+    },
+    {
+      "name": "Panama",
+      "code3": "PAN",
+      "flag_url": "https://flagcdn.com/w40/pa.png",
+      "flag_local": "data/flags/pa.png"
+    },
+    {
+      "name": "Paraguay",
+      "code3": "PRY",
+      "flag_url": "https://flagcdn.com/w40/py.png",
+      "flag_local": "data/flags/py.png"
+    },
+    {
+      "name": "Portugal",
+      "code3": "PRT",
+      "flag_url": "https://flagcdn.com/w40/pt.png",
+      "flag_local": "data/flags/pt.png"
+    },
+    {
+      "name": "Qatar",
+      "code3": "QAT",
+      "flag_url": "https://flagcdn.com/w40/qa.png",
+      "flag_local": "data/flags/qa.png"
+    },
+    {
+      "name": "Saudi Arabia",
+      "code3": "SAU",
+      "flag_url": "https://flagcdn.com/w40/sa.png",
+      "flag_local": "data/flags/sa.png"
+    },
+    {
+      "name": "Scotland",
+      "code3": "GBR",
+      "flag_url": "https://flagcdn.com/w40/gb-sct.png",
+      "flag_local": "data/flags/gb.png"
+    },
+    {
+      "name": "Senegal",
+      "code3": "SEN",
+      "flag_url": "https://flagcdn.com/w40/sn.png",
+      "flag_local": "data/flags/sn.png"
+    },
+    {
+      "name": "South Africa",
+      "code3": "ZAF",
+      "flag_url": "https://flagcdn.com/w40/za.png",
+      "flag_local": "data/flags/za.png"
+    },
+    {
+      "name": "South Korea",
+      "code3": "KOR",
+      "flag_url": "https://flagcdn.com/w40/kr.png",
+      "flag_local": "data/flags/kr.png"
+    },
+    {
+      "name": "Spain",
+      "code3": "ESP",
+      "flag_url": "https://flagcdn.com/w40/es.png",
+      "flag_local": "data/flags/es.png"
+    },
+    {
+      "name": "Sweden",
+      "code3": "SWE",
+      "flag_url": "https://flagcdn.com/w40/se.png",
+      "flag_local": "data/flags/se.png"
+    },
+    {
+      "name": "Switzerland",
+      "code3": "CHE",
+      "flag_url": "https://flagcdn.com/w40/ch.png",
+      "flag_local": "data/flags/ch.png"
+    },
+    {
+      "name": "Tunisia",
+      "code3": "TUN",
+      "flag_url": "https://flagcdn.com/w40/tn.png",
+      "flag_local": "data/flags/tn.png"
+    },
+    {
+      "name": "Turkey",
+      "code3": "TUR",
+      "flag_url": "https://flagcdn.com/w40/tr.png",
+      "flag_local": "data/flags/tr.png"
+    },
+    {
+      "name": "United States",
+      "code3": "USA",
+      "flag_url": "https://flagcdn.com/w40/us.png",
+      "flag_local": "data/flags/us.png"
+    },
+    {
+      "name": "Uruguay",
+      "code3": "URY",
+      "flag_url": "https://flagcdn.com/w40/uy.png",
+      "flag_local": "data/flags/uy.png"
+    },
+    {
+      "name": "Uzbekistan",
+      "code3": "UZB",
+      "flag_url": "https://flagcdn.com/w40/uz.png",
+      "flag_local": "data/flags/uz.png"
+    }
+  ],
+  "groups": [
+    {
+      "group": "Group A",
+      "countries": [
+        "Czech Republic",
+        "Mexico",
+        "South Africa",
+        "South Korea"
+      ]
+    },
+    {
+      "group": "Group B",
+      "countries": [
+        "Bosnia and Herzegovina",
+        "Canada",
+        "Qatar",
+        "Switzerland"
+      ]
+    },
+    {
+      "group": "Group C",
+      "countries": [
+        "Brazil",
+        "Haiti",
+        "Morocco",
+        "Scotland"
+      ]
+    },
+    {
+      "group": "Group D",
+      "countries": [
+        "Australia",
+        "Paraguay",
+        "Turkey",
+        "United States"
+      ]
+    },
+    {
+      "group": "Group E",
+      "countries": [
+        "Curaçao",
+        "Ecuador",
+        "Germany",
+        "Ivory Coast"
+      ]
+    },
+    {
+      "group": "Group F",
+      "countries": [
+        "Japan",
+        "Netherlands",
+        "Sweden",
+        "Tunisia"
+      ]
+    },
+    {
+      "group": "Group G",
+      "countries": [
+        "Belgium",
+        "Egypt",
+        "Iran",
+        "New Zealand"
+      ]
+    },
+    {
+      "group": "Group H",
+      "countries": [
+        "Cape Verde",
+        "Saudi Arabia",
+        "Spain",
+        "Uruguay"
+      ]
+    },
+    {
+      "group": "Group I",
+      "countries": [
+        "France",
+        "Iraq",
+        "Norway",
+        "Senegal"
+      ]
+    },
+    {
+      "group": "Group J",
+      "countries": [
+        "Algeria",
+        "Argentina",
+        "Austria",
+        "Jordan"
+      ]
+    },
+    {
+      "group": "Group K",
+      "countries": [
+        "Colombia",
+        "DR Congo",
+        "Portugal",
+        "Uzbekistan"
+      ]
+    },
+    {
+      "group": "Group L",
+      "countries": [
+        "Croatia",
+        "England",
+        "Ghana",
+        "Panama"
+      ]
+    }
+  ],
+  "schedule": [
+    {
+      "match_number": 1,
+      "date": "Thursday 11 June 2026",
+      "local_time": "13:00",
+      "city": "Mexico City",
+      "stadium": "Estadio Azteca",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "Mexico vs South Africa",
+      "comment": null
+    },
+    {
+      "match_number": 2,
+      "date": "Thursday 11 June 2026",
+      "local_time": "20:00",
+      "city": "Guadalajara",
+      "stadium": "Estadio Akron",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "South Korea vs Czech Republic",
+      "comment": null
+    },
+    {
+      "match_number": 3,
+      "date": "Friday 12 June 2026",
+      "local_time": "15:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Canada vs Bosnia and Herzegovina",
+      "comment": null
+    },
+    {
+      "match_number": 4,
+      "date": "Friday 12 June 2026",
+      "local_time": "18:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "United States vs Paraguay",
+      "comment": null
+    },
+    {
+      "match_number": 5,
+      "date": "Saturday 13 June 2026",
+      "local_time": "21:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Haiti vs Scotland",
+      "comment": null
+    },
+    {
+      "match_number": 6,
+      "date": "Saturday 13 June 2026",
+      "local_time": "21:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "Australia vs Turkey",
+      "comment": null
+    },
+    {
+      "match_number": 7,
+      "date": "Saturday 13 June 2026",
+      "local_time": "18:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Brazil vs Morocco",
+      "comment": null
+    },
+    {
+      "match_number": 8,
+      "date": "Saturday 13 June 2026",
+      "local_time": "12:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Qatar vs Switzerland",
+      "comment": null
+    },
+    {
+      "match_number": 9,
+      "date": "Sunday 14 June 2026",
+      "local_time": "19:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Ivory Coast vs Ecuador",
+      "comment": null
+    },
+    {
+      "match_number": 10,
+      "date": "Sunday 14 June 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Germany vs Curaçao",
+      "comment": null
+    },
+    {
+      "match_number": 11,
+      "date": "Sunday 14 June 2026",
+      "local_time": "15:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Netherlands vs Japan",
+      "comment": null
+    },
+    {
+      "match_number": 12,
+      "date": "Sunday 14 June 2026",
+      "local_time": "20:00",
+      "city": "Monterrey",
+      "stadium": "Estadio BBVA",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Sweden vs Tunisia",
+      "comment": null
+    },
+    {
+      "match_number": 13,
+      "date": "Monday 15 June 2026",
+      "local_time": "18:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Saudi Arabia vs Uruguay",
+      "comment": null
+    },
+    {
+      "match_number": 14,
+      "date": "Monday 15 June 2026",
+      "local_time": "12:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Spain vs Cape Verde",
+      "comment": null
+    },
+    {
+      "match_number": 15,
+      "date": "Monday 15 June 2026",
+      "local_time": "18:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "Iran vs New Zealand",
+      "comment": null
+    },
+    {
+      "match_number": 16,
+      "date": "Monday 15 June 2026",
+      "local_time": "12:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "Belgium vs Egypt",
+      "comment": null
+    },
+    {
+      "match_number": 17,
+      "date": "Tuesday 16 June 2026",
+      "local_time": "15:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "France vs Senegal",
+      "comment": null
+    },
+    {
+      "match_number": 18,
+      "date": "Tuesday 16 June 2026",
+      "local_time": "18:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "Iraq vs Norway",
+      "comment": null
+    },
+    {
+      "match_number": 19,
+      "date": "Tuesday 16 June 2026",
+      "local_time": "20:00",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Argentina vs Algeria",
+      "comment": null
+    },
+    {
+      "match_number": 20,
+      "date": "Tuesday 16 June 2026",
+      "local_time": "21:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Austria vs Jordan",
+      "comment": null
+    },
+    {
+      "match_number": 21,
+      "date": "Wednesday 17 June 2026",
+      "local_time": "19:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "Ghana vs Panama",
+      "comment": null
+    },
+    {
+      "match_number": 22,
+      "date": "Wednesday 17 June 2026",
+      "local_time": "15:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "England vs Croatia",
+      "comment": null
+    },
+    {
+      "match_number": 23,
+      "date": "Wednesday 17 June 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "Portugal vs DR Congo",
+      "comment": null
+    },
+    {
+      "match_number": 24,
+      "date": "Wednesday 17 June 2026",
+      "local_time": "20:00",
+      "city": "Mexico City",
+      "stadium": "Estadio Azteca",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "Uzbekistan vs Colombia",
+      "comment": null
+    },
+    {
+      "match_number": 25,
+      "date": "Thursday 18 June 2026",
+      "local_time": "12:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "Czech Republic vs South Africa",
+      "comment": null
+    },
+    {
+      "match_number": 26,
+      "date": "Thursday 18 June 2026",
+      "local_time": "12:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Switzerland vs Bosnia and Herzegovina",
+      "comment": null
+    },
+    {
+      "match_number": 27,
+      "date": "Thursday 18 June 2026",
+      "local_time": "15:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Canada vs Qatar",
+      "comment": null
+    },
+    {
+      "match_number": 28,
+      "date": "Thursday 18 June 2026",
+      "local_time": "19:00",
+      "city": "Guadalajara",
+      "stadium": "Estadio Akron",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "Mexico vs South Korea",
+      "comment": null
+    },
+    {
+      "match_number": 29,
+      "date": "Friday 19 June 2026",
+      "local_time": "21:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Brazil vs Haiti",
+      "comment": null
+    },
+    {
+      "match_number": 30,
+      "date": "Friday 19 June 2026",
+      "local_time": "18:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Scotland vs Morocco",
+      "comment": null
+    },
+    {
+      "match_number": 31,
+      "date": "Friday 19 June 2026",
+      "local_time": "20:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "Turkey vs Paraguay",
+      "comment": null
+    },
+    {
+      "match_number": 32,
+      "date": "Friday 19 June 2026",
+      "local_time": "12:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "United States vs Australia",
+      "comment": null
+    },
+    {
+      "match_number": 33,
+      "date": "Saturday 20 June 2026",
+      "local_time": "16:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Germany vs Ivory Coast",
+      "comment": null
+    },
+    {
+      "match_number": 34,
+      "date": "Saturday 20 June 2026",
+      "local_time": "19:00",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Ecuador vs Curaçao",
+      "comment": null
+    },
+    {
+      "match_number": 35,
+      "date": "Saturday 20 June 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Netherlands vs Sweden",
+      "comment": null
+    },
+    {
+      "match_number": 36,
+      "date": "Saturday 20 June 2026",
+      "local_time": "22:00",
+      "city": "Monterrey",
+      "stadium": "Estadio BBVA",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Tunisia vs Japan",
+      "comment": null
+    },
+    {
+      "match_number": 37,
+      "date": "Sunday 21 June 2026",
+      "local_time": "18:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Uruguay vs Cape Verde",
+      "comment": null
+    },
+    {
+      "match_number": 38,
+      "date": "Sunday 21 June 2026",
+      "local_time": "12:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Spain vs Saudi Arabia",
+      "comment": null
+    },
+    {
+      "match_number": 39,
+      "date": "Sunday 21 June 2026",
+      "local_time": "12:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "Belgium vs Iran",
+      "comment": null
+    },
+    {
+      "match_number": 40,
+      "date": "Sunday 21 June 2026",
+      "local_time": "18:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "New Zealand vs Egypt",
+      "comment": null
+    },
+    {
+      "match_number": 41,
+      "date": "Monday 22 June 2026",
+      "local_time": "20:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "Norway vs Senegal",
+      "comment": null
+    },
+    {
+      "match_number": 42,
+      "date": "Monday 22 June 2026",
+      "local_time": "17:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "France vs Iraq",
+      "comment": null
+    },
+    {
+      "match_number": 43,
+      "date": "Monday 22 June 2026",
+      "local_time": "12:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Argentina vs Austria",
+      "comment": null
+    },
+    {
+      "match_number": 44,
+      "date": "Monday 22 June 2026",
+      "local_time": "20:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Jordan vs Algeria",
+      "comment": null
+    },
+    {
+      "match_number": 45,
+      "date": "Tuesday 23 June 2026",
+      "local_time": "16:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "England vs Ghana",
+      "comment": null
+    },
+    {
+      "match_number": 46,
+      "date": "Tuesday 23 June 2026",
+      "local_time": "19:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "Panama vs Croatia",
+      "comment": null
+    },
+    {
+      "match_number": 47,
+      "date": "Tuesday 23 June 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "Portugal vs Uzbekistan",
+      "comment": null
+    },
+    {
+      "match_number": 48,
+      "date": "Tuesday 23 June 2026",
+      "local_time": "20:00",
+      "city": "Guadalajara",
+      "stadium": "Estadio Akron",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "Colombia vs DR Congo",
+      "comment": null
+    },
+    {
+      "match_number": 49,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "18:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Scotland vs Brazil",
+      "comment": null
+    },
+    {
+      "match_number": 50,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "18:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "group_stage",
+      "group": "Group C",
+      "matchup": "Morocco vs Haiti",
+      "comment": null
+    },
+    {
+      "match_number": 51,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "12:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Switzerland vs Canada",
+      "comment": null
+    },
+    {
+      "match_number": 52,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "12:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "group_stage",
+      "group": "Group B",
+      "matchup": "Bosnia and Herzegovina vs Qatar",
+      "comment": null
+    },
+    {
+      "match_number": 53,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "19:00",
+      "city": "Mexico City",
+      "stadium": "Estadio Azteca",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "Czech Republic vs Mexico",
+      "comment": null
+    },
+    {
+      "match_number": 54,
+      "date": "Wednesday 24 June 2026",
+      "local_time": "19:00",
+      "city": "Monterrey",
+      "stadium": "Estadio BBVA",
+      "stage": "group_stage",
+      "group": "Group A",
+      "matchup": "South Africa vs South Korea",
+      "comment": null
+    },
+    {
+      "match_number": 55,
+      "date": "Thursday 25 June 2026",
+      "local_time": "16:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Curaçao vs Ivory Coast",
+      "comment": null
+    },
+    {
+      "match_number": 56,
+      "date": "Thursday 25 June 2026",
+      "local_time": "16:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "group_stage",
+      "group": "Group E",
+      "matchup": "Ecuador vs Germany",
+      "comment": null
+    },
+    {
+      "match_number": 57,
+      "date": "Thursday 25 June 2026",
+      "local_time": "18:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Japan vs Sweden",
+      "comment": null
+    },
+    {
+      "match_number": 58,
+      "date": "Thursday 25 June 2026",
+      "local_time": "18:00",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "group_stage",
+      "group": "Group F",
+      "matchup": "Tunisia vs Netherlands",
+      "comment": null
+    },
+    {
+      "match_number": 59,
+      "date": "Thursday 25 June 2026",
+      "local_time": "19:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "Turkey vs United States",
+      "comment": null
+    },
+    {
+      "match_number": 60,
+      "date": "Thursday 25 June 2026",
+      "local_time": "19:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "group_stage",
+      "group": "Group D",
+      "matchup": "Paraguay vs Australia",
+      "comment": null
+    },
+    {
+      "match_number": 61,
+      "date": "Friday 26 June 2026",
+      "local_time": "15:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "Norway vs France",
+      "comment": null
+    },
+    {
+      "match_number": 62,
+      "date": "Friday 26 June 2026",
+      "local_time": "15:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "group_stage",
+      "group": "Group I",
+      "matchup": "Senegal vs Iraq",
+      "comment": null
+    },
+    {
+      "match_number": 63,
+      "date": "Friday 26 June 2026",
+      "local_time": "20:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "Egypt vs Iran",
+      "comment": null
+    },
+    {
+      "match_number": 64,
+      "date": "Friday 26 June 2026",
+      "local_time": "20:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "group_stage",
+      "group": "Group G",
+      "matchup": "New Zealand vs Belgium",
+      "comment": null
+    },
+    {
+      "match_number": 65,
+      "date": "Friday 26 June 2026",
+      "local_time": "19:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Cape Verde vs Saudi Arabia",
+      "comment": null
+    },
+    {
+      "match_number": 66,
+      "date": "Friday 26 June 2026",
+      "local_time": "18:00",
+      "city": "Guadalajara",
+      "stadium": "Estadio Akron",
+      "stage": "group_stage",
+      "group": "Group H",
+      "matchup": "Uruguay vs Spain",
+      "comment": null
+    },
+    {
+      "match_number": 67,
+      "date": "Saturday 27 June 2026",
+      "local_time": "17:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "Panama vs England",
+      "comment": null
+    },
+    {
+      "match_number": 68,
+      "date": "Saturday 27 June 2026",
+      "local_time": "17:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "group_stage",
+      "group": "Group L",
+      "matchup": "Croatia vs Ghana",
+      "comment": null
+    },
+    {
+      "match_number": 69,
+      "date": "Saturday 27 June 2026",
+      "local_time": "21:00",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Algeria vs Austria",
+      "comment": null
+    },
+    {
+      "match_number": 70,
+      "date": "Saturday 27 June 2026",
+      "local_time": "21:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "group_stage",
+      "group": "Group J",
+      "matchup": "Jordan vs Argentina",
+      "comment": null
+    },
+    {
+      "match_number": 71,
+      "date": "Saturday 27 June 2026",
+      "local_time": "19:30",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "Colombia vs Portugal",
+      "comment": null
+    },
+    {
+      "match_number": 72,
+      "date": "Saturday 27 June 2026",
+      "local_time": "19:30",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "group_stage",
+      "group": "Group K",
+      "matchup": "DR Congo vs Uzbekistan",
+      "comment": null
+    },
+    {
+      "match_number": 73,
+      "date": "Sunday 28 June 2026",
+      "local_time": "12:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group A runners-up vs Group B runners-up",
+      "comment": "Group A runners-up vs Group B runners-up"
+    },
+    {
+      "match_number": 74,
+      "date": "Monday 29 June 2026",
+      "local_time": "16:30",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group E winners vs Group A/B/C/D/F third place",
+      "comment": "Group E winners vs Group A/B/C/D/F third place"
+    },
+    {
+      "match_number": 75,
+      "date": "Monday 29 June 2026",
+      "local_time": "19:00",
+      "city": "Monterrey",
+      "stadium": "Estadio BBVA",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group F winners vs Group C runners-up",
+      "comment": "Group F winners vs Group C runners-up"
+    },
+    {
+      "match_number": 76,
+      "date": "Monday 29 June 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group C winners vs Group F runners-up",
+      "comment": "Group C winners vs Group F runners-up"
+    },
+    {
+      "match_number": 77,
+      "date": "Tuesday 30 June 2026",
+      "local_time": "17:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group I winners vs Group C/D/F/G/H third place",
+      "comment": "Group I winners vs Group C/D/F/G/H third place"
+    },
+    {
+      "match_number": 78,
+      "date": "Tuesday 30 June 2026",
+      "local_time": "12:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group E runners-up vs Group I runners-up",
+      "comment": "Group E runners-up vs Group I runners-up"
+    },
+    {
+      "match_number": 79,
+      "date": "Tuesday 30 June 2026",
+      "local_time": "19:00",
+      "city": "Mexico City",
+      "stadium": "Estadio Azteca",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group A winners vs Group C/E/F/H/I third place",
+      "comment": "Group A winners vs Group C/E/F/H/I third place"
+    },
+    {
+      "match_number": 80,
+      "date": "Wednesday 1 July 2026",
+      "local_time": "12:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group L winners vs Group E/H/I/J/K third place",
+      "comment": "Group L winners vs Group E/H/I/J/K third place"
+    },
+    {
+      "match_number": 81,
+      "date": "Wednesday 1 July 2026",
+      "local_time": "17:00",
+      "city": "San Francisco Bay Area",
+      "stadium": "Levi's Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group D winners vs Group B/E/F/I/J third place",
+      "comment": "Group D winners vs Group B/E/F/I/J third place"
+    },
+    {
+      "match_number": 82,
+      "date": "Wednesday 1 July 2026",
+      "local_time": "13:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group G winners vs Group A/E/H/I/J third place",
+      "comment": "Group G winners vs Group A/E/H/I/J third place"
+    },
+    {
+      "match_number": 83,
+      "date": "Thursday 2 July 2026",
+      "local_time": "19:00",
+      "city": "Toronto",
+      "stadium": "BMO Field",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group K runners-up vs Group L runners-up",
+      "comment": "Group K runners-up vs Group L runners-up"
+    },
+    {
+      "match_number": 84,
+      "date": "Thursday 2 July 2026",
+      "local_time": "12:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group H winners vs Group J runners-up",
+      "comment": "Group H winners vs Group J runners-up"
+    },
+    {
+      "match_number": 85,
+      "date": "Thursday 2 July 2026",
+      "local_time": "20:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group B winners vs Group E/F/G/I/J third place",
+      "comment": "Group B winners vs Group E/F/G/I/J third place"
+    },
+    {
+      "match_number": 86,
+      "date": "Friday 3 July 2026",
+      "local_time": "18:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group J winners vs Group H runners-up",
+      "comment": "Group J winners vs Group H runners-up"
+    },
+    {
+      "match_number": 87,
+      "date": "Friday 3 July 2026",
+      "local_time": "20:30",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group K winners vs Group D/E/I/J/L third place",
+      "comment": "Group K winners vs Group D/E/I/J/L third place"
+    },
+    {
+      "match_number": 88,
+      "date": "Friday 3 July 2026",
+      "local_time": "13:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "round_of_32",
+      "group": null,
+      "matchup": "Group D runners-up vs Group G runners-up",
+      "comment": "Group D runners-up vs Group G runners-up"
+    },
+    {
+      "match_number": 89,
+      "date": "Saturday 4 July 2026",
+      "local_time": "17:00",
+      "city": "Philadelphia",
+      "stadium": "Lincoln Financial Field",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 74 vs Winner Match 77",
+      "comment": "Winner Match 74 vs Winner Match 77"
+    },
+    {
+      "match_number": 90,
+      "date": "Saturday 4 July 2026",
+      "local_time": "12:00",
+      "city": "Houston",
+      "stadium": "NRG Stadium",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 73 vs Winner Match 75",
+      "comment": "Winner Match 73 vs Winner Match 75"
+    },
+    {
+      "match_number": 91,
+      "date": "Sunday 5 July 2026",
+      "local_time": "16:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 76 vs Winner Match 78",
+      "comment": "Winner Match 76 vs Winner Match 78"
+    },
+    {
+      "match_number": 92,
+      "date": "Sunday 5 July 2026",
+      "local_time": "18:00",
+      "city": "Mexico City",
+      "stadium": "Estadio Azteca",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 79 vs Winner Match 80",
+      "comment": "Winner Match 79 vs Winner Match 80"
+    },
+    {
+      "match_number": 93,
+      "date": "Monday 6 July 2026",
+      "local_time": "14:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 83 vs Winner Match 84",
+      "comment": "Winner Match 83 vs Winner Match 84"
+    },
+    {
+      "match_number": 94,
+      "date": "Monday 6 July 2026",
+      "local_time": "17:00",
+      "city": "Seattle",
+      "stadium": "Lumen Field",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 81 vs Winner Match 82",
+      "comment": "Winner Match 81 vs Winner Match 82"
+    },
+    {
+      "match_number": 95,
+      "date": "Tuesday 7 July 2026",
+      "local_time": "12:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 86 vs Winner Match 88",
+      "comment": "Winner Match 86 vs Winner Match 88"
+    },
+    {
+      "match_number": 96,
+      "date": "Tuesday 7 July 2026",
+      "local_time": "13:00",
+      "city": "Vancouver",
+      "stadium": "BC Place",
+      "stage": "round_of_16",
+      "group": null,
+      "matchup": "Winner Match 85 vs Winner Match 87",
+      "comment": "Winner Match 85 vs Winner Match 87"
+    },
+    {
+      "match_number": 97,
+      "date": "Thursday 9 July 2026",
+      "local_time": "16:00",
+      "city": "Boston",
+      "stadium": "Gillette Stadium",
+      "stage": "quarter_finals",
+      "group": null,
+      "matchup": "Winner Match 89 vs Winner Match 90",
+      "comment": "Winner Match 89 vs Winner Match 90"
+    },
+    {
+      "match_number": 98,
+      "date": "Friday 10 July 2026",
+      "local_time": "12:00",
+      "city": "Los Angeles",
+      "stadium": "SoFi Stadium",
+      "stage": "quarter_finals",
+      "group": null,
+      "matchup": "Winner Match 93 vs Winner Match 94",
+      "comment": "Winner Match 93 vs Winner Match 94"
+    },
+    {
+      "match_number": 99,
+      "date": "Saturday 11 July 2026",
+      "local_time": "17:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "quarter_finals",
+      "group": null,
+      "matchup": "Winner Match 91 vs Winner Match 92",
+      "comment": "Winner Match 91 vs Winner Match 92"
+    },
+    {
+      "match_number": 100,
+      "date": "Saturday 11 July 2026",
+      "local_time": "20:00",
+      "city": "Kansas City",
+      "stadium": "Arrowhead Stadium",
+      "stage": "quarter_finals",
+      "group": null,
+      "matchup": "Winner Match 95 vs Winner Match 96",
+      "comment": "Winner Match 95 vs Winner Match 96"
+    },
+    {
+      "match_number": 101,
+      "date": "Tuesday 14 July 2026",
+      "local_time": "14:00",
+      "city": "Dallas",
+      "stadium": "AT&T Stadium",
+      "stage": "semi_finals",
+      "group": null,
+      "matchup": "Winner Match 97 vs Winner Match 98",
+      "comment": "Winner Match 97 vs Winner Match 98"
+    },
+    {
+      "match_number": 102,
+      "date": "Wednesday 15 July 2026",
+      "local_time": "15:00",
+      "city": "Atlanta",
+      "stadium": "Mercedes-Benz Stadium",
+      "stage": "semi_finals",
+      "group": null,
+      "matchup": "Winner Match 99 vs Winner Match 100",
+      "comment": "Winner Match 99 vs Winner Match 100"
+    },
+    {
+      "match_number": 103,
+      "date": "Saturday 18 July 2026",
+      "local_time": "17:00",
+      "city": "Miami",
+      "stadium": "Hard Rock Stadium",
+      "stage": "final_and_third_place",
+      "group": null,
+      "matchup": "Loser Match 101 vs Loser Match 102",
+      "comment": "Loser Match 101 vs Loser Match 102"
+    },
+    {
+      "match_number": 104,
+      "date": "Sunday 19 July 2026",
+      "local_time": "15:00",
+      "city": "New York / New Jersey",
+      "stadium": "MetLife Stadium",
+      "stage": "final_and_third_place",
+      "group": null,
+      "matchup": "Winner Match 101 vs Winner Match 102",
+      "comment": "Winner Match 101 vs Winner Match 102"
+    }
+  ]
+}
