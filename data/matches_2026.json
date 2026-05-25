@@ -1,0 +1,31 @@
+{
+  "400021525": {
+    "label": "Round of 32 - Match 82",
+    "status": "pending",
+    "confirmed_home": null,
+    "confirmed_away": null,
+    "candidate_matchups": [
+      {"home": "USA", "away": "Germany"},
+      {"home": "USA", "away": "Brazil"},
+      {"home": "USA", "away": "England"},
+      {"home": "USA", "away": "Spain"},
+      {"home": "Mexico", "away": "Germany"},
+      {"home": "Mexico", "away": "Brazil"},
+      {"home": "Mexico", "away": "England"},
+      {"home": "Mexico", "away": "Spain"},
+      {"home": "Japan", "away": "Germany"},
+      {"home": "Japan", "away": "Brazil"},
+      {"home": "Japan", "away": "England"},
+      {"home": "Japan", "away": "Spain"},
+      {"home": "Netherlands", "away": "USA"},
+      {"home": "Netherlands", "away": "Mexico"}
+    ]
+  },
+  "400021526": {
+    "label": "Round of 32 - Match 83",
+    "status": "determined",
+    "confirmed_home": "Argentina",
+    "confirmed_away": "Croatia",
+    "candidate_matchups": []
+  }
+}
