@@ -185,6 +185,15 @@ def render_matchup_predictor() -> None:
     if selected == placeholder:
         return
 
+    selected_match = next((m for m in schedule if str(m["match_number"]) == selected), None)
+    if selected_match and selected_match.get("stage") == "group_stage":
+        st.success("Group stage matchup is fixed")
+        st.markdown(f"**{selected_match['matchup']}**")
+        st.write(
+            f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
+        )
+        return
+
     predictor = get_predictor()
     result = predictor.predict(selected)
 
