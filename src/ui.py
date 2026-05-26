@@ -131,8 +131,13 @@ def render_matchup_predictor() -> None:
             options=category_filter_options,
             index=0,
         )
+    include_group_stage = st.checkbox("Include group stage matches", value=False)
 
     filtered_schedule = schedule
+    if not include_group_stage:
+        filtered_schedule = [
+            m for m in filtered_schedule if get_match_category(m) != "Group Stage"
+        ]
     if selected_city != "All Cities":
         filtered_schedule = [m for m in filtered_schedule if m["city"] == selected_city]
     if selected_category != "All Categories":
@@ -219,8 +224,8 @@ def render_matchup_predictor() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Knockout Matchup Predictor", page_icon="⚽", layout="centered")
-    st.title("Knockout Matchup Predictor")
+    st.set_page_config(page_title="World Cup 2026 Matchup Predictor", page_icon="⚽", layout="centered")
+    st.title("World Cup 2026 Matchup Predictor")
     render_matchup_predictor()
 
 
