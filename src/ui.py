@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from datetime import datetime
 
 import streamlit as st
 
@@ -33,6 +34,38 @@ def load_match_options() -> dict[str, str]:
 def load_world_cup_data() -> dict:
     with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def to_short_date(date_text: str) -> str:
+    try:
+        parsed = datetime.strptime(date_text, "%A %d %B %Y")
+        return parsed.strftime("%d %b %Y")
+    except (TypeError, ValueError):
+        return date_text
+
+
+def get_round_label(match: dict) -> str:
+    group = match.get("group")
+    if group:
+        return group.replace("Group", "GROUP")
+
+    stage_labels = {
+        "round_of_32": "Round of 32",
+        "round_of_16": "Round of 16",
+        "quarter_finals": "Quarter-Final",
+        "semi_finals": "Semi-Final",
+    }
+    stage = match.get("stage")
+    if stage in stage_labels:
+        return stage_labels[stage]
+
+    if stage == "final_and_third_place":
+        matchup = str(match.get("matchup", "")).lower()
+        if matchup.startswith("loser"):
+            return "3rd Place"
+        return "Final"
+
+    return str(stage).replace("_", " ").title()
 
 
 def main() -> None:
@@ -129,7 +162,9 @@ def main() -> None:
         option_match_ids = set(options.keys())
         all_match_options = {
             str(m["match_number"]): (
-                f"Match {m['match_number']} - {m['stage']} - {m['matchup']}"
+                f"Match {m['match_number']} - {to_short_date(m['date'])} - {m['city']} - "
+                f"{get_round_label(m)} - "
+                f"{m['matchup']}"
             )
             for m in schedule
         }
