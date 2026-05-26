@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import base64
 from pathlib import Path
 from datetime import datetime
 
@@ -113,10 +114,19 @@ def order_categories(categories: set[str]) -> list[str]:
 
 def render_matchup_predictor() -> None:
     world_cup = load_world_cup_data()
+    participants = world_cup.get("participants", [])
     schedule = world_cup.get("schedule", [])
+    team_to_flag = {
+        p["name"]: str((Path(__file__).resolve().parent.parent / p["flag_local"]).resolve())
+        for p in participants
+        if p.get("name") and p.get("flag_local")
+    }
 
-    options = load_match_options()
-    option_match_ids = set(options.keys())
+    @st.cache_data
+    def encode_flag_image(path: str) -> str:
+        with Path(path).open("rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+
     city_filter_options = ["All Cities"] + sorted({m["city"] for m in schedule})
     category_filter_options = ["All Categories"] + order_categories(
         {get_match_category(m) for m in schedule}
@@ -175,52 +185,34 @@ def render_matchup_predictor() -> None:
     if selected == placeholder:
         return
 
-    selected_match = next(
-        (m for m in schedule if str(m["match_number"]) == selected),
-        None,
-    )
-    if selected_match and selected_match.get("stage") == "group_stage":
-        st.success("Group stage matchup is fixed")
-        st.write(f"**{selected_match['matchup']}**")
-        st.write(
-            f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
-        )
-        if selected_match["comment"]:
-            st.write(f"Rule: {selected_match['comment']}")
-        return
+    predictor = get_predictor()
+    result = predictor.predict(selected)
 
-    if selected not in option_match_ids:
-        st.info(
-            "Prediction model data is not configured for this match yet. Showing actual schedule data."
-        )
-        if selected_match:
-            st.write(f"**{selected_match['matchup']}**")
-            st.write(
-                f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
-            )
-            if selected_match["comment"]:
-                st.write(f"Rule: {selected_match['comment']}")
-    else:
-        predictor = get_predictor()
-        result = predictor.predict(selected)
+    st.info("Top 10 predicted matchups")
+    for candidate in result.top_candidates:
+        home_flag = team_to_flag.get(candidate.home_team)
+        away_flag = team_to_flag.get(candidate.away_team)
+        home_flag_html = ""
+        away_flag_html = ""
+        if home_flag:
+            home_flag_b64 = encode_flag_image(home_flag)
+            home_flag_html = f"<img src='data:image/png;base64,{home_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+        if away_flag:
+            away_flag_b64 = encode_flag_image(away_flag)
+            away_flag_html = f"<img src='data:image/png;base64,{away_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
 
-        if result.status == "confirmed" and result.confirmed_matchup:
-            st.success("Matchup already confirmed")
-            st.write(
-                f"**{result.confirmed_matchup.home_team} vs {result.confirmed_matchup.away_team}**"
-            )
-        else:
-            st.info("Top 10 predicted matchups")
-            rows = [
-                {
-                    "Rank": i,
-                    "Matchup": f"{candidate.home_team} vs {candidate.away_team}",
-                    "Score": candidate.score,
-                    "Signals": candidate.reason,
-                }
-                for i, candidate in enumerate(result.top_candidates, start=1)
-            ]
-            st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.markdown(
+            f"""
+            <div style="display:grid; grid-template-columns: 1fr 40px 56px 40px 1fr; align-items:center; column-gap:10px; margin:8px 0;">
+              <div style="text-align:right; font-weight:700; white-space:nowrap;">{candidate.home_team}</div>
+              <div style="display:flex; justify-content:center;">{home_flag_html}</div>
+              <div style="text-align:center; font-weight:800; letter-spacing:0.5px;">VS</div>
+              <div style="display:flex; justify-content:center;">{away_flag_html}</div>
+              <div style="text-align:left; font-weight:700; white-space:nowrap;">{candidate.away_team}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def main() -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 
 try:
@@ -11,6 +12,7 @@ except ModuleNotFoundError:
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
+WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
 
 
 class MatchupPredictor:
@@ -23,53 +25,50 @@ class MatchupPredictor:
         with DATA_PATH.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    def predict(self, match_id: str) -> PredictionResponse:
-        matches = self._load_matches()
-        match = matches.get(match_id)
-        if not match:
-            raise ValueError(f"Unknown match_id: {match_id}")
+    def _load_participant_teams(self) -> list[str]:
+        with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        participants = payload.get("participants", [])
+        return [p["name"] for p in participants if p.get("name")]
 
-        if match["status"] in {"played", "determined"}:
-            confirmed = MatchupCandidate(
-                home_team=match["confirmed_home"],
-                away_team=match["confirmed_away"],
-                score=1.0,
-                reason="Matchup confirmed by tournament results.",
-            )
-            return PredictionResponse(
-                match_id=match_id,
-                status="confirmed",
-                confirmed_matchup=confirmed,
-                top_candidates=[],
-            )
+    def _build_baseline_candidates(self, match_id: str, limit: int = 10) -> list[MatchupCandidate]:
+        teams = self._load_participant_teams()
+        if len(teams) < 2:
+            raise ValueError("Not enough participant teams to build baseline predictions.")
 
+        all_pairs: list[tuple[str, str]] = []
+        for i, home_team in enumerate(teams):
+            for j, away_team in enumerate(teams):
+                if i != j:
+                    all_pairs.append((home_team, away_team))
+
+        random.shuffle(all_pairs)
         candidates: list[MatchupCandidate] = []
-        for entry in match["candidate_matchups"]:
-            context = SignalContext(
-                match_id=match_id,
-                home_slot_team=entry["home"],
-                away_slot_team=entry["away"],
-            )
+        used_unordered_pairs: set[tuple[str, str]] = set()
+        score = 1.0
 
-            form_score = self.group_form.score(context)
-            elo_score = self.elo.score(context)
-            rest_score = self.travel_rest.score(context)
-
-            # Weighted score: tunable once live signals are wired.
-            score = (0.45 * form_score) + (0.40 * elo_score) + (0.15 * rest_score)
-
+        for home_team, away_team in all_pairs:
+            pair_key = tuple(sorted((home_team, away_team)))
+            if pair_key in used_unordered_pairs:
+                continue
+            used_unordered_pairs.add(pair_key)
             candidates.append(
                 MatchupCandidate(
-                    home_team=entry["home"],
-                    away_team=entry["away"],
+                    home_team=home_team,
+                    away_team=away_team,
                     score=round(score, 4),
-                    reason=(
-                        f"form={form_score:.3f}, elo={elo_score:.3f}, travel_rest={rest_score:.3f}"
-                    ),
+                    reason="Baseline UI test: matchup can be any two different participant teams.",
                 )
             )
+            score = max(0.0, score - 0.01)
+            if len(candidates) >= limit:
+                break
 
-        ranked = sorted(candidates, key=lambda c: c.score, reverse=True)[:10]
+        return candidates
+
+    def predict(self, match_id: str) -> PredictionResponse:
+        # Baseline mode: for UI testing, ignore tournament path rules and signal scoring.
+        ranked = self._build_baseline_candidates(match_id=match_id, limit=10)
         return PredictionResponse(
             match_id=match_id,
             status="predicted",
