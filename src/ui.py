@@ -250,12 +250,12 @@ def render_matchup_predictor() -> None:
 
         st.markdown(
             f"""
-            <div style="display:grid; grid-template-columns: 1fr 40px 56px 40px 1fr; align-items:center; column-gap:10px; margin:8px 0;">
-              <div style="text-align:right; font-weight:700; white-space:nowrap;">{candidate.home_team}</div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); align-items:center; column-gap:10px; margin:8px 0;">
+              <div style="text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{candidate.home_team}</div>
               <div style="display:flex; justify-content:center;">{home_flag_html}</div>
               <div style="text-align:center; font-weight:800; letter-spacing:0.5px;">VS</div>
               <div style="display:flex; justify-content:center;">{away_flag_html}</div>
-              <div style="text-align:left; font-weight:700; white-space:nowrap;">{candidate.away_team}</div>
+              <div style="text-align:left; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{candidate.away_team}</div>
             </div>
             """,
             unsafe_allow_html=True,
