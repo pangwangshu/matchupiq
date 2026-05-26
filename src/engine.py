@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import random
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 try:
     from src.models import MatchupCandidate, PredictionResponse
@@ -20,29 +22,85 @@ WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcu
 FIFA_RANKING_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "fifa_men_ranking_static.json"
 
 
+class MatchDataProvider(Protocol):
+    def load_matches(self) -> dict:
+        ...
+
+    def load_world_cup_data(self) -> dict:
+        ...
+
+    def load_fifa_ranking_data(self) -> dict:
+        ...
+
+    def load_participant_teams(self) -> list[str]:
+        ...
+
+
+class TournamentSimulator(Protocol):
+    def predict_matchup_candidates(self, match_number: int, limit: int = 10) -> list[tuple[str, str, float]]:
+        ...
+
+
+class TournamentSimulatorFactory(Protocol):
+    def create(self, world_cup_data: dict, fifa_ranking_data: dict) -> TournamentSimulator:
+        ...
+
+
+@dataclass
+class StaticJsonMatchDataProvider:
+    matches_path: Path = DATA_PATH
+    world_cup_path: Path = WORLD_CUP_DATA_PATH
+    fifa_ranking_path: Path = FIFA_RANKING_DATA_PATH
+
+    def load_matches(self) -> dict:
+        with self.matches_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def load_world_cup_data(self) -> dict:
+        with self.world_cup_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def load_fifa_ranking_data(self) -> dict:
+        with self.fifa_ranking_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def load_participant_teams(self) -> list[str]:
+        payload = self.load_world_cup_data()
+        participants = payload.get("participants", [])
+        return [p["name"] for p in participants if p.get("name")]
+
+
+class WorldRankingSimulatorFactory:
+    def create(self, world_cup_data: dict, fifa_ranking_data: dict) -> WorldRankingTournamentSimulator:
+        return WorldRankingTournamentSimulator(
+            world_cup_data=world_cup_data,
+            fifa_ranking_data=fifa_ranking_data,
+        )
+
+
 class MatchupPredictor:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        data_provider: MatchDataProvider | None = None,
+        simulator_factory: TournamentSimulatorFactory | None = None,
+    ) -> None:
+        self.data_provider = data_provider or StaticJsonMatchDataProvider()
+        self.simulator_factory = simulator_factory or WorldRankingSimulatorFactory()
         self.group_form = GroupFormSignal()
         self.elo = EloStrengthSignal()
         self.travel_rest = TravelRestSignal()
 
     def _load_matches(self) -> dict:
-        with DATA_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return self.data_provider.load_matches()
 
     def _load_participant_teams(self) -> list[str]:
-        with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
-        participants = payload.get("participants", [])
-        return [p["name"] for p in participants if p.get("name")]
+        return self.data_provider.load_participant_teams()
 
     def _load_world_cup_data(self) -> dict:
-        with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return self.data_provider.load_world_cup_data()
 
     def _load_fifa_ranking_data(self) -> dict:
-        with FIFA_RANKING_DATA_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return self.data_provider.load_fifa_ranking_data()
 
     def _resolver(self) -> TournamentStructureResolver:
         world_cup = self._load_world_cup_data()
@@ -152,7 +210,7 @@ class MatchupPredictor:
 
         world_cup_data = self._load_world_cup_data()
         fifa_ranking_data = self._load_fifa_ranking_data()
-        simulator = WorldRankingTournamentSimulator(
+        simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
             fifa_ranking_data=fifa_ranking_data,
         )
