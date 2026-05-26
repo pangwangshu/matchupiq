@@ -202,10 +202,10 @@ class MatchupPredictor:
         score = 1.0
 
         for home_team, away_team in all_pairs:
-            pair_key = tuple(sorted((home_team, away_team)))
+            pair_key = tuple(sorted((home_team, away_team)))  # type: ignore[assignment]
             if pair_key in used_unordered_pairs:
                 continue
-            used_unordered_pairs.add(pair_key)
+            used_unordered_pairs.add(pair_key)  # type: ignore[arg-type]
             candidates.append(
                 MatchupCandidate(
                     home_team=home_team,
