@@ -299,8 +299,9 @@ def render_matchup_predictor() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="World Cup 2026 Matchup Predictor", page_icon="⚽", layout="centered")
-    st.title("World Cup 2026 Matchup Predictor")
+    st.set_page_config(page_title="MatchupIQ", page_icon="⚽", layout="centered")
+    st.title("MatchupIQ")
+    st.caption("Predict every 2026 World Cup clash in seconds.")
     render_matchup_predictor()
 
 
