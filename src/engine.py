@@ -144,7 +144,7 @@ class MatchupPredictor:
 
         return candidates
 
-    def _build_world_ranking_candidate(self, match_id: str) -> MatchupCandidate | None:
+    def _build_world_ranking_candidates(self, match_id: str, limit: int = 10) -> list[MatchupCandidate] | None:
         try:
             match_number = int(match_id)
         except (TypeError, ValueError):
@@ -156,30 +156,37 @@ class MatchupPredictor:
             world_cup_data=world_cup_data,
             fifa_ranking_data=fifa_ranking_data,
         )
-        simulated_matchups = simulator.simulate_tournament()
-        matchup = simulated_matchups.get(match_number)
-        if not matchup:
+        predicted = simulator.predict_matchup_candidates(
+            match_number=match_number,
+            limit=limit,
+        )
+        if not predicted:
             return None
 
-        home_team, away_team = matchup
-        diff = abs(simulator._pairwise_strength_diff(home_team, away_team))
-        confidence = min(0.99, 0.55 + (diff / 400.0))
-        return MatchupCandidate(
-            home_team=home_team,
-            away_team=away_team,
-            score=round(confidence, 4),
-            reason="Predicted via FIFA world-ranking simulation (group stage + knockout propagation).",
-        )
+        out: list[MatchupCandidate] = []
+        for home_team, away_team, probability in predicted:
+            out.append(
+                MatchupCandidate(
+                    home_team=home_team,
+                    away_team=away_team,
+                    score=round(probability, 4),
+                    reason=(
+                        "Predicted via FIFA world-ranking scenario search "
+                        "(group standings + knockout outcome branching)."
+                    ),
+                )
+            )
+        return out
 
     def predict(self, match_id: str) -> PredictionResponse:
-        world_ranking_candidate = None
+        world_ranking_candidates = None
         try:
-            world_ranking_candidate = self._build_world_ranking_candidate(match_id=match_id)
+            world_ranking_candidates = self._build_world_ranking_candidates(match_id=match_id, limit=10)
         except Exception:
-            world_ranking_candidate = None
+            world_ranking_candidates = None
 
-        if world_ranking_candidate is not None:
-            ranked = [world_ranking_candidate]
+        if world_ranking_candidates is not None:
+            ranked = world_ranking_candidates
         else:
             ranked = self._build_baseline_candidates(match_id=match_id, limit=10)
         return PredictionResponse(

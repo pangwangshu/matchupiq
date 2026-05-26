@@ -12,49 +12,57 @@ def _simulator() -> WorldRankingTournamentSimulator:
     )
 
 
-def test_simulate_tournament_builds_knockout_matches() -> None:
+def test_predict_matchup_candidates_returns_ranked_probabilities() -> None:
+    simulator = _simulator()
+    candidates = simulator.predict_matchup_candidates(match_number=82, limit=10)
+    assert candidates
+    assert len(candidates) <= 10
+    assert candidates == sorted(candidates, key=lambda item: item[2], reverse=True)
+    total = sum(probability for _home, _away, probability in candidates)
+    assert 0.95 <= total <= 1.05
+    for home, away, probability in candidates:
+        assert home != away
+        assert probability > 0
+
+
+def test_predict_matchup_candidates_respects_rule_space() -> None:
+    simulator = _simulator()
+    predictor = MatchupPredictor()
+    valid_pairs = set(predictor._build_rule_based_pairs(82))
+    assert valid_pairs
+
+    candidates = simulator.predict_matchup_candidates(match_number=82, limit=10)
+    assert candidates
+    for home, away, _probability in candidates:
+        assert (home, away) in valid_pairs
+
+
+def test_world_beam_search_is_deterministic() -> None:
+    simulator = _simulator()
+    first = simulator.predict_matchup_candidates(match_number=94, limit=10)
+    second = simulator.predict_matchup_candidates(match_number=94, limit=10)
+    assert first == second
+
+
+def test_world_scenarios_are_bounded_and_nonempty() -> None:
+    simulator = _simulator()
+    worlds = simulator._beam_world_scenarios(
+        group_beam_width=32,
+        group_max_scenarios=8,
+        world_beam_width=64,
+        min_branch_probability=1e-5,
+    )
+    assert worlds
+    assert len(worlds) <= 64
+    total = sum(world.probability for world in worlds)
+    assert 0.95 <= total <= 1.05
+
+
+def test_simulate_tournament_back_compat_has_knockout_rows() -> None:
     simulator = _simulator()
     simulated = simulator.simulate_tournament()
     assert 74 in simulated
     assert 89 in simulated
     assert 104 in simulated
     assert simulated[104][0] != simulated[104][1]
-
-
-def test_simulation_is_deterministic() -> None:
-    simulator = _simulator()
-    first = simulator.simulate_tournament()
-    second = simulator.simulate_tournament()
-    assert first == second
-
-
-def test_third_place_assignments_use_top_eight_without_reuse() -> None:
-    simulator = _simulator()
-    group_standings, third_place_rows = simulator._simulate_group_stage()
-    top_eight_third = {standing.team for _group, standing in third_place_rows[:8]}
-    simulated = simulator.simulate_tournament()
-
-    third_place_selected: list[str] = []
-    schedule = simulator.world_cup_data["schedule"]
-    for match in schedule:
-        if match.get("stage") != "round_of_32":
-            continue
-        slots = simulator.resolver.parse_fixed_matchup(str(match.get("comment") or match.get("matchup") or ""))
-        if not slots:
-            continue
-        home_slot, away_slot = slots
-        pair = simulated[int(match["match_number"])]
-        home_team, away_team = pair
-
-        parsed_home = simulator._parse_group_slot_with_order(home_slot)
-        parsed_away = simulator._parse_group_slot_with_order(away_slot)
-        if parsed_home and parsed_home[1] == "third place":
-            third_place_selected.append(home_team)
-        if parsed_away and parsed_away[1] == "third place":
-            third_place_selected.append(away_team)
-
-    assert len(third_place_selected) == 8
-    assert len(set(third_place_selected)) == 8
-    assert set(third_place_selected).issubset(top_eight_third)
-    assert group_standings
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from math import exp
 
 try:
     from src.tournament import TournamentStructureResolver
@@ -31,6 +32,28 @@ class TeamStanding:
         return self.goals_for - self.goals_against
 
 
+@dataclass(frozen=True)
+class MatchOutcome:
+    home_goals: int
+    away_goals: int
+    probability: float
+
+
+@dataclass
+class GroupScenario:
+    group: str
+    probability: float
+    standings: list[TeamStanding]
+    signature: tuple
+
+
+@dataclass
+class WorldScenario:
+    probability: float
+    group_scenarios: dict[str, GroupScenario]
+    signature: tuple
+
+
 class WorldRankingTournamentSimulator:
     def __init__(
         self,
@@ -50,6 +73,12 @@ class WorldRankingTournamentSimulator:
         all_points = sorted([entry.fifa_points for entry in self.rankings_by_team.values()])
         self.default_points = all_points[len(all_points) // 2] if all_points else 1400.0
         self.default_rank = 120
+        self.group_matches = self._build_group_matches()
+        self.match_by_number = {
+            int(match["match_number"]): match
+            for match in self.world_cup_data.get("schedule", [])
+            if isinstance(match.get("match_number"), int)
+        }
 
     def _build_ranking_map(self, fifa_ranking_data: dict) -> dict[str, TeamRanking]:
         out: dict[str, TeamRanking] = {}
@@ -64,6 +93,27 @@ class WorldRankingTournamentSimulator:
             )
         return out
 
+    def _build_group_matches(self) -> dict[str, list[tuple[str, str]]]:
+        out: dict[str, list[tuple[str, str]]] = {}
+        group_stage = sorted(
+            [
+                match
+                for match in self.world_cup_data.get("schedule", [])
+                if match.get("stage") == "group_stage"
+            ],
+            key=lambda match: int(match.get("match_number", 0)),
+        )
+        for match in group_stage:
+            group_name = str(match.get("group", ""))
+            group = group_name.replace("Group", "").strip().upper()
+            if not group:
+                continue
+            slots = self.resolver.parse_fixed_matchup(str(match.get("matchup") or match.get("comment") or ""))
+            if not slots:
+                continue
+            out.setdefault(group, []).append(slots)
+        return out
+
     def _team_ranking(self, team: str) -> TeamRanking:
         return self.rankings_by_team.get(
             team,
@@ -73,28 +123,38 @@ class WorldRankingTournamentSimulator:
     def _pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
         return self._team_ranking(team_a).fifa_points - self._team_ranking(team_b).fifa_points
 
-    def _simulate_group_score(self, team_a: str, team_b: str) -> tuple[int, int]:
-        diff = self._pairwise_strength_diff(team_a, team_b)
+    def _sigmoid(self, value: float) -> float:
+        if value >= 0:
+            z = exp(-value)
+            return 1.0 / (1.0 + z)
+        z = exp(value)
+        return z / (1.0 + z)
+
+    def _group_outcomes(self, home_team: str, away_team: str) -> list[MatchOutcome]:
+        diff = self._pairwise_strength_diff(home_team, away_team)
+        abs_diff = abs(diff)
+
+        draw_probability = max(0.10, min(0.32, 0.30 - (abs_diff / 700.0)))
+        home_given_no_draw = self._sigmoid(diff / 85.0)
+        home_win_probability = (1.0 - draw_probability) * home_given_no_draw
+        away_win_probability = max(0.0, 1.0 - draw_probability - home_win_probability)
+
+        margin = 2 if abs_diff >= self.decisive_band else 1
+        return [
+            MatchOutcome(home_goals=1 + margin, away_goals=1, probability=home_win_probability),
+            MatchOutcome(home_goals=1, away_goals=1, probability=draw_probability),
+            MatchOutcome(home_goals=1, away_goals=1 + margin, probability=away_win_probability),
+        ]
+
+    def _knockout_home_win_probability(self, home_team: str, away_team: str) -> float:
+        diff = self._pairwise_strength_diff(home_team, away_team)
+        base = self._sigmoid(diff / 75.0)
         if abs(diff) <= self.draw_band:
-            return 1, 1
-
-        margin = 2 if abs(diff) >= self.decisive_band else 1
-        if diff > 0:
-            return 1 + margin, 1
-        return 1, 1 + margin
-
-    def _simulate_knockout_winner(self, team_a: str, team_b: str) -> tuple[str, str]:
-        diff = self._pairwise_strength_diff(team_a, team_b)
-        if abs(diff) <= self.draw_band:
-            rank_a = self._team_ranking(team_a).fifa_rank
-            rank_b = self._team_ranking(team_b).fifa_rank
-            if rank_a <= rank_b:
-                return team_a, team_b
-            return team_b, team_a
-
-        if diff > 0:
-            return team_a, team_b
-        return team_b, team_a
+            rank_home = self._team_ranking(home_team).fifa_rank
+            rank_away = self._team_ranking(away_team).fifa_rank
+            rank_bias = (rank_away - rank_home) / 400.0
+            base = 0.5 + rank_bias
+        return max(0.05, min(0.95, base))
 
     def _standing_sort_key(self, standing: TeamStanding) -> tuple:
         team_rank = self._team_ranking(standing.team)
@@ -107,75 +167,163 @@ class WorldRankingTournamentSimulator:
             standing.team,
         )
 
-    def _init_group_tables(self) -> dict[str, dict[str, TeamStanding]]:
-        tables: dict[str, dict[str, TeamStanding]] = {}
-        for group in self.world_cup_data.get("groups", []):
-            letter = str(group.get("group", "")).replace("Group", "").strip().upper()
-            if not letter:
-                continue
-            tables[letter] = {
-                team: TeamStanding(team=team)
-                for team in [str(country) for country in group.get("countries", [])]
-            }
-        return tables
+    def _third_sort_key(self, standing: TeamStanding) -> tuple:
+        return self._standing_sort_key(standing)
 
-    def _simulate_group_stage(self) -> tuple[dict[str, list[TeamStanding]], list[tuple[str, TeamStanding]]]:
-        tables = self._init_group_tables()
-        group_matches = sorted(
-            [
-                match
-                for match in self.world_cup_data.get("schedule", [])
-                if str(match.get("stage", "")) == "group_stage"
-            ],
-            key=lambda match: int(match.get("match_number", 0)),
+    def _copy_table(self, table: dict[str, TeamStanding]) -> dict[str, TeamStanding]:
+        return {
+            team: TeamStanding(
+                team=row.team,
+                points=row.points,
+                goals_for=row.goals_for,
+                goals_against=row.goals_against,
+                wins=row.wins,
+                draws=row.draws,
+                losses=row.losses,
+            )
+            for team, row in table.items()
+        }
+
+    def _table_signature(self, table: dict[str, TeamStanding]) -> tuple:
+        return tuple(
+            (
+                team,
+                row.points,
+                row.goals_for,
+                row.goals_against,
+                row.wins,
+                row.draws,
+                row.losses,
+            )
+            for team, row in sorted(table.items(), key=lambda item: item[0])
         )
 
-        for match in group_matches:
-            group_name = str(match.get("group", ""))
-            letter = group_name.replace("Group", "").strip().upper()
-            if letter not in tables:
-                continue
+    def _apply_result(self, table: dict[str, TeamStanding], home_team: str, away_team: str, outcome: MatchOutcome) -> None:
+        home = table[home_team]
+        away = table[away_team]
+        home.goals_for += outcome.home_goals
+        home.goals_against += outcome.away_goals
+        away.goals_for += outcome.away_goals
+        away.goals_against += outcome.home_goals
 
-            matchup_text = str(match.get("matchup") or match.get("comment") or "")
-            parsed = self.resolver.parse_fixed_matchup(matchup_text)
-            if not parsed:
-                continue
-            home_team, away_team = parsed
-            if home_team not in tables[letter] or away_team not in tables[letter]:
-                continue
+        if outcome.home_goals > outcome.away_goals:
+            home.points += 3
+            home.wins += 1
+            away.losses += 1
+        elif outcome.home_goals < outcome.away_goals:
+            away.points += 3
+            away.wins += 1
+            home.losses += 1
+        else:
+            home.points += 1
+            away.points += 1
+            home.draws += 1
+            away.draws += 1
 
-            home_goals, away_goals = self._simulate_group_score(home_team, away_team)
-            home = tables[letter][home_team]
-            away = tables[letter][away_team]
-            home.goals_for += home_goals
-            home.goals_against += away_goals
-            away.goals_for += away_goals
-            away.goals_against += home_goals
+    def _init_group_table(self, group: str) -> dict[str, TeamStanding]:
+        teams = self.resolver.group_to_teams.get(group, [])
+        return {team: TeamStanding(team=team) for team in teams}
 
-            if home_goals > away_goals:
-                home.points += 3
-                home.wins += 1
-                away.losses += 1
-            elif home_goals < away_goals:
-                away.points += 3
-                away.wins += 1
-                home.losses += 1
-            else:
-                home.points += 1
-                away.points += 1
-                home.draws += 1
-                away.draws += 1
+    def _beam_group_scenarios(
+        self,
+        group: str,
+        beam_width: int,
+        max_scenarios: int,
+        min_branch_probability: float,
+    ) -> list[GroupScenario]:
+        matches = self.group_matches.get(group, [])
+        if not matches:
+            return []
 
-        sorted_group_tables: dict[str, list[TeamStanding]] = {}
-        third_place_rows: list[tuple[str, TeamStanding]] = []
-        for letter, team_rows in tables.items():
-            ordered = sorted(team_rows.values(), key=self._standing_sort_key)
-            sorted_group_tables[letter] = ordered
-            if len(ordered) >= 3:
-                third_place_rows.append((letter, ordered[2]))
+        initial_table = self._init_group_table(group)
+        states: list[tuple[dict[str, TeamStanding], float]] = [(initial_table, 1.0)]
 
-        third_place_rows.sort(key=lambda pair: self._standing_sort_key(pair[1]))
-        return sorted_group_tables, third_place_rows
+        for home_team, away_team in matches:
+            merged: dict[tuple, tuple[dict[str, TeamStanding], float]] = {}
+            for table, state_probability in states:
+                for outcome in self._group_outcomes(home_team, away_team):
+                    branch_probability = state_probability * outcome.probability
+                    if branch_probability < min_branch_probability:
+                        continue
+                    next_table = self._copy_table(table)
+                    self._apply_result(next_table, home_team, away_team, outcome)
+                    signature = self._table_signature(next_table)
+                    if signature in merged:
+                        prev_table, prev_probability = merged[signature]
+                        merged[signature] = (prev_table, prev_probability + branch_probability)
+                    else:
+                        merged[signature] = (next_table, branch_probability)
+
+            states = sorted(merged.values(), key=lambda item: item[1], reverse=True)[:beam_width]
+            if not states:
+                break
+
+        scenarios: list[GroupScenario] = []
+        for table, probability in states:
+            standings = sorted(table.values(), key=self._standing_sort_key)
+            scenarios.append(
+                GroupScenario(
+                    group=group,
+                    probability=probability,
+                    standings=standings,
+                    signature=self._table_signature(table),
+                )
+            )
+        scenarios.sort(key=lambda scenario: scenario.probability, reverse=True)
+        return scenarios[:max_scenarios]
+
+    def _beam_world_scenarios(
+        self,
+        group_beam_width: int,
+        group_max_scenarios: int,
+        world_beam_width: int,
+        min_branch_probability: float,
+    ) -> list[WorldScenario]:
+        groups = sorted(self.resolver.group_to_teams.keys())
+        scenarios_by_group = {
+            group: self._beam_group_scenarios(
+                group=group,
+                beam_width=group_beam_width,
+                max_scenarios=group_max_scenarios,
+                min_branch_probability=min_branch_probability,
+            )
+            for group in groups
+        }
+
+        worlds: list[WorldScenario] = [WorldScenario(probability=1.0, group_scenarios={}, signature=tuple())]
+        for group in groups:
+            group_scenarios = scenarios_by_group.get(group, [])
+            if not group_scenarios:
+                return []
+
+            merged: dict[tuple, WorldScenario] = {}
+            for world in worlds:
+                for group_scenario in group_scenarios:
+                    probability = world.probability * group_scenario.probability
+                    next_group_scenarios = dict(world.group_scenarios)
+                    next_group_scenarios[group] = group_scenario
+                    signature = tuple(
+                        (letter, next_group_scenarios[letter].signature)
+                        for letter in sorted(next_group_scenarios.keys())
+                    )
+                    if signature in merged:
+                        merged[signature].probability += probability
+                    else:
+                        merged[signature] = WorldScenario(
+                            probability=probability,
+                            group_scenarios=next_group_scenarios,
+                            signature=signature,
+                        )
+
+            worlds = sorted(merged.values(), key=lambda item: item.probability, reverse=True)[:world_beam_width]
+            if not worlds:
+                break
+
+        total = sum(world.probability for world in worlds)
+        if total > 0:
+            for world in worlds:
+                world.probability /= total
+        return worlds
 
     def _parse_group_slot_with_order(self, slot_text: str) -> tuple[list[str], str] | None:
         pattern = r"^Group\s+([A-Z](?:/[A-Z])*)\s+(winners|runners-up|third place)$"
@@ -186,74 +334,25 @@ class WorldRankingTournamentSimulator:
         slot_type = match.group(2).lower()
         return group_letters, slot_type
 
-    def _pick_team_for_group_slot(
-        self,
-        group_order: list[str],
-        slot_type: str,
-        group_standings: dict[str, list[TeamStanding]],
-    ) -> str:
+    def _standing_for_group_slot(self, world: WorldScenario, group: str, slot_type: str) -> TeamStanding:
+        scenario = world.group_scenarios[group]
         if slot_type == "winners":
-            options = [group_standings[group][0].team for group in group_order if group in group_standings]
-            return self._pick_best_ranked_team(options)
+            return scenario.standings[0]
         if slot_type == "runners-up":
-            options = [group_standings[group][1].team for group in group_order if group in group_standings]
-            return self._pick_best_ranked_team(options)
-        raise ValueError(f"Unable to resolve slot type '{slot_type}' for groups {group_order}.")
+            return scenario.standings[1]
+        if slot_type == "third place":
+            return scenario.standings[2]
+        raise ValueError(f"Unsupported slot type: {slot_type}")
 
-    def _pick_best_ranked_team(self, teams: list[str]) -> str:
-        if not teams:
-            raise ValueError("Unable to pick team from empty options.")
-        return sorted(
-            teams,
-            key=lambda team: (
-                -self._team_ranking(team).fifa_points,
-                self._team_ranking(team).fifa_rank,
-                team,
-            ),
-        )[0]
+    def _best_third_teams(self, world: WorldScenario) -> list[TeamStanding]:
+        all_third = [scenario.standings[2] for scenario in world.group_scenarios.values()]
+        return sorted(all_third, key=self._third_sort_key)[:8]
 
-    def _group_letter_for_team(self, team: str) -> str | None:
-        for letter, teams in self.resolver.group_to_teams.items():
+    def _group_for_team(self, team: str) -> str | None:
+        for group, teams in self.resolver.group_to_teams.items():
             if team in teams:
-                return letter
+                return group
         return None
-
-    def _resolve_knockout_slot_team(
-        self,
-        slot_text: str,
-        match_number: int,
-        side: str,
-        group_standings: dict[str, list[TeamStanding]],
-        third_place_assignments: dict[tuple[int, str], str],
-        winners_by_match: dict[int, str],
-        losers_by_match: dict[int, str],
-    ) -> str:
-        slot_text = slot_text.strip()
-        group_slot = self._parse_group_slot_with_order(slot_text)
-        if group_slot:
-            group_order, slot_type = group_slot
-            if slot_type == "third place":
-                key = (match_number, side)
-                if key not in third_place_assignments:
-                    raise ValueError(f"Missing third-place assignment for match {match_number} {side}.")
-                return third_place_assignments[key]
-            return self._pick_team_for_group_slot(group_order, slot_type, group_standings)
-
-        winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if winner_match:
-            ref = int(winner_match.group(1))
-            if ref not in winners_by_match:
-                raise ValueError(f"Winner dependency unresolved for match {ref}.")
-            return winners_by_match[ref]
-
-        loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if loser_match:
-            ref = int(loser_match.group(1))
-            if ref not in losers_by_match:
-                raise ValueError(f"Loser dependency unresolved for match {ref}.")
-            return losers_by_match[ref]
-
-        return slot_text
 
     def _collect_third_place_slots(self) -> list[tuple[int, str, set[str]]]:
         slots: list[tuple[int, str, set[str]]] = []
@@ -278,19 +377,17 @@ class WorldRankingTournamentSimulator:
                 slots.append((match_number, "right", set(right_group_slot[0])))
         return slots
 
-    def _assign_third_place_slots(self, best_third_teams: list[str]) -> dict[tuple[int, str], str]:
+    def _assign_third_place_slots_for_world(self, world: WorldScenario) -> dict[tuple[int, str], str]:
+        best_third = self._best_third_teams(world)
+        best_third_teams = [row.team for row in best_third]
         slots = self._collect_third_place_slots()
-        team_group = {team: self._group_letter_for_team(team) for team in best_third_teams}
+        team_group = {team: self._group_for_team(team) for team in best_third_teams}
         priority = {team: idx for idx, team in enumerate(best_third_teams)}
 
         options: dict[tuple[int, str], list[str]] = {}
         for match_number, side, allowed_groups in slots:
             key = (match_number, side)
-            candidates = [
-                team
-                for team in best_third_teams
-                if team_group.get(team) in allowed_groups
-            ]
+            candidates = [team for team in best_third_teams if team_group.get(team) in allowed_groups]
             candidates.sort(key=lambda team: priority[team])
             options[key] = candidates
 
@@ -315,76 +412,235 @@ class WorldRankingTournamentSimulator:
 
         if backtrack(0):
             return chosen
+        raise ValueError("Unable to assign third-place teams for world scenario.")
 
-        # Fallback: if strict assignment fails, fill remaining slots greedily.
-        remaining = [team for team in best_third_teams if team not in used]
-        for slot_key in ordered_keys:
-            if slot_key in chosen:
-                continue
-            valid = [team for team in options[slot_key] if team not in used]
-            if valid:
-                team = valid[0]
-            elif remaining:
-                team = remaining.pop(0)
-            else:
-                raise ValueError("Unable to assign third-place teams to round-of-32 slots.")
-            chosen[slot_key] = team
-            used.add(team)
-        return chosen
+    def _slot_team_distribution(
+        self,
+        slot_text: str,
+        match_number: int,
+        side: str,
+        world: WorldScenario,
+        third_assignments: dict[tuple[int, str], str],
+        memo: dict[tuple[int, str], dict[str, float]],
+    ) -> dict[str, float]:
+        group_slot = self._parse_group_slot_with_order(slot_text)
+        if group_slot:
+            groups, slot_type = group_slot
+            if slot_type == "third place":
+                assigned = third_assignments[(match_number, side)]
+                return {assigned: 1.0}
 
-    def simulate_tournament(self) -> dict[int, tuple[str, str]]:
-        group_standings, third_place_rows = self._simulate_group_stage()
-        best_third_teams = [row.team for _group, row in third_place_rows[:8]]
-        third_place_assignments = self._assign_third_place_slots(best_third_teams)
+            contenders = [self._standing_for_group_slot(world, group, slot_type).team for group in groups]
+            if len(contenders) == 1:
+                return {contenders[0]: 1.0}
 
-        predicted_matchups: dict[int, tuple[str, str]] = {}
-        winners_by_match: dict[int, str] = {}
-        losers_by_match: dict[int, str] = {}
+            total = 0.0
+            dist: dict[str, float] = {}
+            for contender in contenders:
+                points = self._team_ranking(contender).fifa_points
+                weight = max(points, 1.0)
+                total += weight
+                dist[contender] = weight
+            return {team: weight / total for team, weight in dist.items()}
 
-        schedule = sorted(
-            [
-                match
-                for match in self.world_cup_data.get("schedule", [])
-                if isinstance(match.get("match_number"), int)
-            ],
-            key=lambda match: int(match["match_number"]),
+        winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text.strip(), flags=re.IGNORECASE)
+        if winner_match:
+            ref = int(winner_match.group(1))
+            return self._match_winner_distribution(ref, world, third_assignments, memo)
+
+        loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text.strip(), flags=re.IGNORECASE)
+        if loser_match:
+            ref = int(loser_match.group(1))
+            return self._match_loser_distribution(ref, world, third_assignments, memo)
+
+        return {slot_text.strip(): 1.0}
+
+    def _match_winner_distribution(
+        self,
+        match_number: int,
+        world: WorldScenario,
+        third_assignments: dict[tuple[int, str], str],
+        memo: dict[tuple[int, str], dict[str, float]],
+    ) -> dict[str, float]:
+        key = (match_number, "winner")
+        if key in memo:
+            return memo[key]
+        match = self.match_by_number.get(match_number)
+        if not match:
+            memo[key] = {}
+            return memo[key]
+        slots = self.resolver.parse_fixed_matchup(str(match.get("comment") or match.get("matchup") or ""))
+        if not slots:
+            memo[key] = {}
+            return memo[key]
+
+        left_slot, right_slot = slots
+        left_dist = self._slot_team_distribution(
+            left_slot,
+            match_number,
+            "left",
+            world,
+            third_assignments,
+            memo,
+        )
+        right_dist = self._slot_team_distribution(
+            right_slot,
+            match_number,
+            "right",
+            world,
+            third_assignments,
+            memo,
+        )
+        winners: dict[str, float] = {}
+        for home_team, home_probability in left_dist.items():
+            for away_team, away_probability in right_dist.items():
+                if home_team == away_team:
+                    continue
+                matchup_probability = home_probability * away_probability
+                home_win_probability = self._knockout_home_win_probability(home_team, away_team)
+                winners[home_team] = winners.get(home_team, 0.0) + matchup_probability * home_win_probability
+                winners[away_team] = winners.get(away_team, 0.0) + matchup_probability * (1.0 - home_win_probability)
+
+        memo[key] = winners
+        return winners
+
+    def _match_loser_distribution(
+        self,
+        match_number: int,
+        world: WorldScenario,
+        third_assignments: dict[tuple[int, str], str],
+        memo: dict[tuple[int, str], dict[str, float]],
+    ) -> dict[str, float]:
+        key = (match_number, "loser")
+        if key in memo:
+            return memo[key]
+        match = self.match_by_number.get(match_number)
+        if not match:
+            memo[key] = {}
+            return memo[key]
+        slots = self.resolver.parse_fixed_matchup(str(match.get("comment") or match.get("matchup") or ""))
+        if not slots:
+            memo[key] = {}
+            return memo[key]
+
+        left_slot, right_slot = slots
+        left_dist = self._slot_team_distribution(
+            left_slot,
+            match_number,
+            "left",
+            world,
+            third_assignments,
+            memo,
+        )
+        right_dist = self._slot_team_distribution(
+            right_slot,
+            match_number,
+            "right",
+            world,
+            third_assignments,
+            memo,
+        )
+        losers: dict[str, float] = {}
+        for home_team, home_probability in left_dist.items():
+            for away_team, away_probability in right_dist.items():
+                if home_team == away_team:
+                    continue
+                matchup_probability = home_probability * away_probability
+                home_win_probability = self._knockout_home_win_probability(home_team, away_team)
+                losers[away_team] = losers.get(away_team, 0.0) + matchup_probability * home_win_probability
+                losers[home_team] = losers.get(home_team, 0.0) + matchup_probability * (1.0 - home_win_probability)
+
+        memo[key] = losers
+        return losers
+
+    def _target_pair_distribution_for_world(
+        self,
+        match_number: int,
+        world: WorldScenario,
+    ) -> dict[tuple[str, str], float]:
+        match = self.match_by_number.get(match_number)
+        if not match:
+            return {}
+        slots = self.resolver.parse_fixed_matchup(str(match.get("comment") or match.get("matchup") or ""))
+        if not slots:
+            return {}
+
+        left_slot, right_slot = slots
+        third_assignments = self._assign_third_place_slots_for_world(world)
+        memo: dict[tuple[int, str], dict[str, float]] = {}
+
+        left_dist = self._slot_team_distribution(
+            left_slot,
+            match_number,
+            "left",
+            world,
+            third_assignments,
+            memo,
+        )
+        right_dist = self._slot_team_distribution(
+            right_slot,
+            match_number,
+            "right",
+            world,
+            third_assignments,
+            memo,
         )
 
-        for match in schedule:
-            match_number = int(match["match_number"])
-            matchup_text = str(match.get("comment") or match.get("matchup") or "")
-            slots = self.resolver.parse_fixed_matchup(matchup_text)
-            if not slots:
+        pairs: dict[tuple[str, str], float] = {}
+        for home_team, home_probability in left_dist.items():
+            for away_team, away_probability in right_dist.items():
+                if home_team == away_team:
+                    continue
+                probability = home_probability * away_probability
+                if probability <= 0:
+                    continue
+                pair_key = (home_team, away_team)
+                pairs[pair_key] = pairs.get(pair_key, 0.0) + probability
+        return pairs
+
+    def predict_matchup_candidates(
+        self,
+        match_number: int,
+        limit: int = 10,
+        group_beam_width: int = 64,
+        group_max_scenarios: int = 20,
+        world_beam_width: int = 256,
+        min_branch_probability: float = 1e-5,
+    ) -> list[tuple[str, str, float]]:
+        worlds = self._beam_world_scenarios(
+            group_beam_width=group_beam_width,
+            group_max_scenarios=group_max_scenarios,
+            world_beam_width=world_beam_width,
+            min_branch_probability=min_branch_probability,
+        )
+        if not worlds:
+            return []
+
+        aggregate: dict[tuple[str, str], float] = {}
+        for world in worlds:
+            try:
+                pair_dist = self._target_pair_distribution_for_world(match_number=match_number, world=world)
+            except ValueError:
                 continue
-            left_slot, right_slot = slots
+            for pair, pair_probability in pair_dist.items():
+                aggregate[pair] = aggregate.get(pair, 0.0) + world.probability * pair_probability
 
-            stage = str(match.get("stage", ""))
-            if stage == "group_stage":
-                predicted_matchups[match_number] = (left_slot, right_slot)
+        if not aggregate:
+            return []
+
+        ranked = sorted(aggregate.items(), key=lambda item: item[1], reverse=True)[:limit]
+        total = sum(score for _pair, score in ranked)
+        if total <= 0:
+            return []
+        return [(home, away, score / total) for (home, away), score in ranked]
+
+    # Backward compatibility helper used by older call sites/tests.
+    def simulate_tournament(self) -> dict[int, tuple[str, str]]:
+        out: dict[int, tuple[str, str]] = {}
+        for match_number in sorted(self.match_by_number.keys()):
+            candidates = self.predict_matchup_candidates(match_number=match_number, limit=1)
+            if not candidates:
                 continue
-
-            home_team = self._resolve_knockout_slot_team(
-                left_slot,
-                match_number,
-                "left",
-                group_standings,
-                third_place_assignments,
-                winners_by_match,
-                losers_by_match,
-            )
-            away_team = self._resolve_knockout_slot_team(
-                right_slot,
-                match_number,
-                "right",
-                group_standings,
-                third_place_assignments,
-                winners_by_match,
-                losers_by_match,
-            )
-            predicted_matchups[match_number] = (home_team, away_team)
-
-            winner, loser = self._simulate_knockout_winner(home_team, away_team)
-            winners_by_match[match_number] = winner
-            losers_by_match[match_number] = loser
-
-        return predicted_matchups
+            home_team, away_team, _score = candidates[0]
+            out[match_number] = (home_team, away_team)
+        return out
