@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import json
 import base64
+import json
 import inspect
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -226,7 +227,35 @@ def render_matchup_predictor() -> None:
     selected_match = next((m for m in schedule if str(m["match_number"]) == selected), None)
     if selected_match and selected_match.get("stage") == "group_stage":
         st.success("Group stage matchup is fixed")
-        st.markdown(f"**{selected_match['matchup']}**")
+        matchup_text = selected_match.get("matchup", "")
+        parts = re.split(r"\s+vs\s+", matchup_text, maxsplit=1, flags=re.IGNORECASE)
+        if len(parts) == 2:
+            home_team, away_team = parts[0].strip(), parts[1].strip()
+            home_flag = team_to_flag.get(home_team)
+            away_flag = team_to_flag.get(away_team)
+            home_flag_html = ""
+            away_flag_html = ""
+            if home_flag:
+                home_flag_b64 = encode_flag_image(home_flag)
+                home_flag_html = f"<img src='data:image/png;base64,{home_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+            if away_flag:
+                away_flag_b64 = encode_flag_image(away_flag)
+                away_flag_html = f"<img src='data:image/png;base64,{away_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+
+            st.markdown(
+                f"""
+                <div style="display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); align-items:center; column-gap:10px; margin:8px 0;">
+                  <div style="text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{home_team}</div>
+                  <div style="display:flex; justify-content:center;">{home_flag_html}</div>
+                  <div style="text-align:center; font-weight:800; letter-spacing:0.5px;">VS</div>
+                  <div style="display:flex; justify-content:center;">{away_flag_html}</div>
+                  <div style="text-align:left; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{away_team}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(f"**{matchup_text}**")
         st.write(
             f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
         )
