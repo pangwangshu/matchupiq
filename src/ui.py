@@ -151,6 +151,7 @@ def render_matchup_predictor() -> None:
             "Filter by category",
             options=category_filter_options,
             index=0,
+            key="category_filter_select",
             **selectbox_kwargs,
         )
     include_group_stage = st.checkbox("Include group stage matches", value=False)
@@ -200,22 +201,28 @@ def render_matchup_predictor() -> None:
         """
         <script>
           const applyNoKeyboard = () => {
-            const targets = [
-              ".st-key-city_filter_select input[role='combobox']",
-              ".st-key-match_picker_select input[role='combobox']",
+            const selectors = [
+              "div[data-baseweb='select'] input[role='combobox']",
+              ".stSelectbox input[role='combobox']",
             ];
-            for (const selector of targets) {
-              const el = window.parent.document.querySelector(selector);
-              if (!el) continue;
-              el.setAttribute("readonly", "readonly");
-              el.setAttribute("inputmode", "none");
-              el.setAttribute("autocomplete", "off");
-              el.style.caretColor = "transparent";
+            const seen = new Set();
+            for (const selector of selectors) {
+              const elements = window.parent.document.querySelectorAll(selector);
+              for (const el of elements) {
+                if (seen.has(el)) continue;
+                seen.add(el);
+                el.readOnly = true;
+                el.setAttribute("readonly", "readonly");
+                el.setAttribute("inputmode", "none");
+                el.setAttribute("autocomplete", "off");
+                el.style.caretColor = "transparent";
+              }
             }
           };
           applyNoKeyboard();
           setTimeout(applyNoKeyboard, 300);
           setTimeout(applyNoKeyboard, 1000);
+          setTimeout(applyNoKeyboard, 1800);
         </script>
         """,
         height=0,
