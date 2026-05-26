@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import json
 import random
-import re
 from pathlib import Path
-from typing import Iterable
 
 try:
     from src.models import MatchupCandidate, PredictionResponse
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from src.tournament import TournamentStructureResolver
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from tournament import TournamentStructureResolver
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
@@ -37,31 +37,26 @@ class MatchupPredictor:
         with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
             return json.load(f)
 
+    def _resolver(self) -> TournamentStructureResolver:
+        world_cup = self._load_world_cup_data()
+        return TournamentStructureResolver(
+            groups=world_cup.get("groups", []),
+            schedule=world_cup.get("schedule", []),
+        )
+
     def _parse_fixed_matchup(self, matchup_text: str) -> tuple[str, str] | None:
-        parts = re.split(r"\s+vs\s+", str(matchup_text), maxsplit=1, flags=re.IGNORECASE)
-        if len(parts) != 2:
-            return None
-        return parts[0].strip(), parts[1].strip()
+        return self._resolver().parse_fixed_matchup(matchup_text)
 
     def _expand_groups(self, group_token: str) -> list[str]:
-        return [g.strip() for g in group_token.split("/") if g.strip()]
+        return self._resolver().expand_groups(group_token)
 
-    def _teams_from_groups(
-        self, groups: Iterable[str], group_to_teams: dict[str, list[str]]
-    ) -> set[str]:
-        teams: set[str] = set()
-        for group_letter in groups:
-            teams.update(group_to_teams.get(group_letter, []))
-        return teams
+    def _teams_from_groups(self, groups: list[str], group_to_teams: dict[str, list[str]]) -> set[str]:
+        resolver = self._resolver()
+        resolver.group_to_teams = group_to_teams
+        return resolver.teams_from_groups(groups)
 
     def _parse_group_slot(self, slot_text: str) -> tuple[set[str], str] | None:
-        pattern = r"^Group\s+([A-Z](?:/[A-Z])*)\s+(winners|runners-up|third place)$"
-        match = re.match(pattern, slot_text.strip(), flags=re.IGNORECASE)
-        if not match:
-            return None
-        groups = self._expand_groups(match.group(1).upper())
-        slot_type = match.group(2).lower()
-        return set(groups), slot_type
+        return self._resolver().parse_group_slot(slot_text)
 
     def _resolve_slot_teams(
         self,
@@ -71,26 +66,11 @@ class MatchupPredictor:
         cache: dict[int, set[str]],
         stack: set[int],
     ) -> set[str]:
-        slot_text = slot_text.strip()
-
-        group_slot = self._parse_group_slot(slot_text)
-        if group_slot:
-            groups, _slot_type = group_slot
-            return self._teams_from_groups(groups, group_to_teams)
-
-        winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if winner_match:
-            return self._resolve_match_team_pool(
-                int(winner_match.group(1)), schedule_by_number, group_to_teams, cache, stack
-            )
-
-        loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if loser_match:
-            return self._resolve_match_team_pool(
-                int(loser_match.group(1)), schedule_by_number, group_to_teams, cache, stack
-            )
-
-        return set()
+        resolver = self._resolver()
+        resolver.schedule_by_number = schedule_by_number
+        resolver.group_to_teams = group_to_teams
+        resolver._cache = cache
+        return resolver.resolve_slot_teams(slot_text, stack)
 
     def _resolve_match_team_pool(
         self,
@@ -100,81 +80,14 @@ class MatchupPredictor:
         cache: dict[int, set[str]],
         stack: set[int],
     ) -> set[str]:
-        if match_number in cache:
-            return cache[match_number]
-        if match_number in stack:
-            return set()
-
-        match = schedule_by_number.get(match_number)
-        if not match:
-            return set()
-
-        stack.add(match_number)
-        matchup_text = str(match.get("comment") or match.get("matchup") or "")
-        fixed = self._parse_fixed_matchup(matchup_text)
-        if not fixed:
-            cache[match_number] = set()
-            stack.remove(match_number)
-            return cache[match_number]
-
-        left_slot, right_slot = fixed
-        left_teams = self._resolve_slot_teams(
-            left_slot, schedule_by_number, group_to_teams, cache, stack
-        )
-        right_teams = self._resolve_slot_teams(
-            right_slot, schedule_by_number, group_to_teams, cache, stack
-        )
-
-        if not left_teams and " vs " in matchup_text:
-            left_teams = {left_slot}
-        if not right_teams and " vs " in matchup_text:
-            right_teams = {right_slot}
-
-        cache[match_number] = left_teams | right_teams
-        stack.remove(match_number)
-        return cache[match_number]
+        resolver = self._resolver()
+        resolver.schedule_by_number = schedule_by_number
+        resolver.group_to_teams = group_to_teams
+        resolver._cache = cache
+        return resolver.resolve_match_team_pool(match_number, stack)
 
     def _build_rule_based_pairs(self, match_number: int) -> list[tuple[str, str]]:
-        world_cup = self._load_world_cup_data()
-        schedule = world_cup.get("schedule", [])
-        groups = world_cup.get("groups", [])
-        selected_match = next(
-            (m for m in schedule if str(m.get("match_number")) == str(match_number)),
-            None,
-        )
-        if not selected_match:
-            return []
-
-        matchup_text = str(selected_match.get("comment") or selected_match.get("matchup") or "")
-        slots = self._parse_fixed_matchup(matchup_text)
-        if not slots:
-            return []
-        left_slot, right_slot = slots
-
-        group_to_teams: dict[str, list[str]] = {}
-        for g in groups:
-            group_name = str(g.get("group", ""))
-            letter = group_name.replace("Group", "").strip().upper()
-            if letter:
-                group_to_teams[letter] = [str(t) for t in g.get("countries", [])]
-
-        schedule_by_number = {
-            int(m["match_number"]): m
-            for m in schedule
-            if isinstance(m.get("match_number"), int)
-        }
-        cache: dict[int, set[str]] = {}
-        left_teams = self._resolve_slot_teams(left_slot, schedule_by_number, group_to_teams, cache, set())
-        right_teams = self._resolve_slot_teams(right_slot, schedule_by_number, group_to_teams, cache, set())
-        if not left_teams or not right_teams:
-            return []
-
-        pairs: list[tuple[str, str]] = []
-        for home_team in sorted(left_teams):
-            for away_team in sorted(right_teams):
-                if home_team != away_team:
-                    pairs.append((home_team, away_team))
-        return pairs
+        return self._resolver().build_rule_based_pairs(match_number)
 
     def _build_baseline_candidates(self, match_id: str, limit: int = 10) -> list[MatchupCandidate]:
         match_number: int | None = None
