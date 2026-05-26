@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     from src.engine import MatchupPredictor
@@ -141,6 +142,7 @@ def render_matchup_predictor() -> None:
             "Filter by city",
             options=city_filter_options,
             index=0,
+            key="city_filter_select",
             **selectbox_kwargs,
         )
     with filter_col2:
@@ -189,7 +191,33 @@ def render_matchup_predictor() -> None:
         "Pick a FIFA World Cup 2026 match to predict",
         options=[placeholder] + list(all_match_options.keys()),
         format_func=lambda x: all_match_options[x] if x != placeholder else placeholder,
+        key="match_picker_select",
         **selectbox_kwargs,
+    )
+
+    components.html(
+        """
+        <script>
+          const applyNoKeyboard = () => {
+            const targets = [
+              ".st-key-city_filter_select input[role='combobox']",
+              ".st-key-match_picker_select input[role='combobox']",
+            ];
+            for (const selector of targets) {
+              const el = window.parent.document.querySelector(selector);
+              if (!el) continue;
+              el.setAttribute("readonly", "readonly");
+              el.setAttribute("inputmode", "none");
+              el.setAttribute("autocomplete", "off");
+              el.style.caretColor = "transparent";
+            }
+          };
+          applyNoKeyboard();
+          setTimeout(applyNoKeyboard, 300);
+          setTimeout(applyNoKeyboard, 1000);
+        </script>
+        """,
+        height=0,
     )
 
     if selected == placeholder:
