@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+.vscode/
+.devcontainer/
+.idea/
+*.log
+.pytest_cache/
