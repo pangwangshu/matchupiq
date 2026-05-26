@@ -8,13 +8,16 @@ try:
     from src.models import MatchupCandidate, PredictionResponse
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from src.tournament import TournamentStructureResolver
+    from src.world_ranking import WorldRankingTournamentSimulator
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from tournament import TournamentStructureResolver
+    from world_ranking import WorldRankingTournamentSimulator
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
+FIFA_RANKING_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "fifa_men_ranking_static.json"
 
 
 class MatchupPredictor:
@@ -35,6 +38,10 @@ class MatchupPredictor:
 
     def _load_world_cup_data(self) -> dict:
         with WORLD_CUP_DATA_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _load_fifa_ranking_data(self) -> dict:
+        with FIFA_RANKING_DATA_PATH.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     def _resolver(self) -> TournamentStructureResolver:
@@ -137,9 +144,44 @@ class MatchupPredictor:
 
         return candidates
 
+    def _build_world_ranking_candidate(self, match_id: str) -> MatchupCandidate | None:
+        try:
+            match_number = int(match_id)
+        except (TypeError, ValueError):
+            return None
+
+        world_cup_data = self._load_world_cup_data()
+        fifa_ranking_data = self._load_fifa_ranking_data()
+        simulator = WorldRankingTournamentSimulator(
+            world_cup_data=world_cup_data,
+            fifa_ranking_data=fifa_ranking_data,
+        )
+        simulated_matchups = simulator.simulate_tournament()
+        matchup = simulated_matchups.get(match_number)
+        if not matchup:
+            return None
+
+        home_team, away_team = matchup
+        diff = abs(simulator._pairwise_strength_diff(home_team, away_team))
+        confidence = min(0.99, 0.55 + (diff / 400.0))
+        return MatchupCandidate(
+            home_team=home_team,
+            away_team=away_team,
+            score=round(confidence, 4),
+            reason="Predicted via FIFA world-ranking simulation (group stage + knockout propagation).",
+        )
+
     def predict(self, match_id: str) -> PredictionResponse:
-        # Baseline mode: for UI testing, ignore tournament path rules and signal scoring.
-        ranked = self._build_baseline_candidates(match_id=match_id, limit=10)
+        world_ranking_candidate = None
+        try:
+            world_ranking_candidate = self._build_world_ranking_candidate(match_id=match_id)
+        except Exception:
+            world_ranking_candidate = None
+
+        if world_ranking_candidate is not None:
+            ranked = [world_ranking_candidate]
+        else:
+            ranked = self._build_baseline_candidates(match_id=match_id, limit=10)
         return PredictionResponse(
             match_id=match_id,
             status="predicted",
