@@ -68,20 +68,98 @@ def get_round_label(match: dict) -> str:
     return str(stage).replace("_", " ").title()
 
 
+def get_match_category(match: dict) -> str:
+    stage = match.get("stage")
+    if stage == "group_stage":
+        return "Group Stage"
+    if stage == "round_of_32":
+        return "Round of 32"
+    if stage == "round_of_16":
+        return "Round of 16"
+    if stage == "quarter_finals":
+        return "Quarter-Final"
+    if stage == "semi_finals":
+        return "Semi-Final"
+    if stage == "final_and_third_place":
+        matchup = str(match.get("matchup", "")).lower()
+        if matchup.startswith("loser"):
+            return "3rd Place"
+        return "Final"
+    return str(stage).replace("_", " ").title()
+
+
+def order_categories(categories: set[str]) -> list[str]:
+    preferred_order = [
+        "Group Stage",
+        "Round of 32",
+        "Round of 16",
+        "Round of 8",
+        "Semi-Final",
+        "3rd Place",
+        "Final",
+    ]
+    alias_map = {"Quarter-Final": "Round of 8"}
+
+    normalized_to_original: dict[str, str] = {}
+    for category in categories:
+        normalized = alias_map.get(category, category)
+        if normalized not in normalized_to_original:
+            normalized_to_original[normalized] = normalized
+
+    ordered = [c for c in preferred_order if c in normalized_to_original]
+    extras = sorted(c for c in normalized_to_original if c not in preferred_order)
+    return ordered + extras
+
+
 def render_matchup_predictor() -> None:
     world_cup = load_world_cup_data()
     schedule = world_cup.get("schedule", [])
 
     options = load_match_options()
     option_match_ids = set(options.keys())
+    city_filter_options = ["All Cities"] + sorted({m["city"] for m in schedule})
+    category_filter_options = ["All Categories"] + order_categories(
+        {get_match_category(m) for m in schedule}
+    )
+
+    filter_col1, filter_col2 = st.columns(2)
+    with filter_col1:
+        selected_city = st.selectbox("Filter by city", options=city_filter_options, index=0)
+    with filter_col2:
+        selected_category = st.selectbox(
+            "Filter by category",
+            options=category_filter_options,
+            index=0,
+        )
+
+    filtered_schedule = schedule
+    if selected_city != "All Cities":
+        filtered_schedule = [m for m in filtered_schedule if m["city"] == selected_city]
+    if selected_category != "All Categories":
+        filtered_schedule = [
+            m
+            for m in filtered_schedule
+            if (
+                get_match_category(m) == selected_category
+                or (
+                    selected_category == "Round of 8"
+                    and get_match_category(m) == "Quarter-Final"
+                )
+            )
+        ]
+
     all_match_options = {
         str(m["match_number"]): (
             f"Match {m['match_number']} - {to_short_date(m['date'])} - {m['city']} - "
             f"{get_round_label(m)} - "
             f"{m['matchup']}"
         )
-        for m in schedule
+        for m in filtered_schedule
     }
+    if not all_match_options:
+        st.info("No matches found for the selected filters.")
+        return
+
     placeholder = "-- SELECT A WORLD CUP 2026 MATCH --"
     selected = st.selectbox(
         "Pick a FIFA World Cup 2026 match to predict",
