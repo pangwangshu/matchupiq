@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import base64
+import inspect
 from pathlib import Path
 from datetime import datetime
 
@@ -131,15 +132,23 @@ def render_matchup_predictor() -> None:
     category_filter_options = ["All Categories"] + order_categories(
         {get_match_category(m) for m in schedule}
     )
+    supports_filter_mode = "filter_mode" in inspect.signature(st.selectbox).parameters
+    selectbox_kwargs = {"filter_mode": None} if supports_filter_mode else {}
 
     filter_col1, filter_col2 = st.columns(2)
     with filter_col1:
-        selected_city = st.selectbox("Filter by city", options=city_filter_options, index=0)
+        selected_city = st.selectbox(
+            "Filter by city",
+            options=city_filter_options,
+            index=0,
+            **selectbox_kwargs,
+        )
     with filter_col2:
         selected_category = st.selectbox(
             "Filter by category",
             options=category_filter_options,
             index=0,
+            **selectbox_kwargs,
         )
     include_group_stage = st.checkbox("Include group stage matches", value=False)
 
@@ -180,6 +189,7 @@ def render_matchup_predictor() -> None:
         "Pick a FIFA World Cup 2026 match to predict",
         options=[placeholder] + list(all_match_options.keys()),
         format_func=lambda x: all_match_options[x] if x != placeholder else placeholder,
+        **selectbox_kwargs,
     )
 
     if selected == placeholder:
