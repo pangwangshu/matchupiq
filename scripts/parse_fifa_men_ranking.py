@@ -10,6 +10,7 @@ import requests
 
 SOURCE_URL = "https://inside.fifa.com/fifa-world-ranking/men"
 RANKING_API_URL = "https://inside.fifa.com/api/ranking-overview"
+COUNTRY_RANKING_URL_TEMPLATE = "https://inside.fifa.com/fifa-world-ranking/{country_code}"
 DEFAULT_PARTICIPANTS_JSON = Path("data/worldcup_2026_static.json")
 DEFAULT_OUT_JSON = Path("data/fifa_men_ranking_static.json")
 
@@ -21,10 +22,19 @@ PARTICIPANT_NAME_TO_FIFA_NAME = {
 
 # Canonicalization for mismatched country codes in existing static participant file.
 PARTICIPANT_CODE_OVERRIDES = {
+    "Algeria": "ALG",
+    "Croatia": "CRO",
     "England": "ENG",
+    "Germany": "GER",
     "Scotland": "SCO",
     "Ivory Coast": "CIV",
+    "Netherlands": "NED",
+    "Paraguay": "PAR",
+    "Portugal": "POR",
+    "Saudi Arabia": "KSA",
     "South Korea": "KOR",
+    "South Africa": "RSA",
+    "Switzerland": "SUI",
 }
 
 HEADERS_HTML = {
@@ -77,6 +87,7 @@ def _fetch_date_ids(session: requests.Session) -> list[dict]:
     valid_dates = [d for d in all_dates if isinstance(d, dict) and d.get("id")]
     if not valid_dates:
         raise ParseError("Ranking date entries are present but do not contain valid IDs.")
+    valid_dates.sort(key=lambda d: str(d.get("date", "")), reverse=True)
 
     return valid_dates
 
@@ -93,9 +104,105 @@ def _fetch_rankings_for_date(session: requests.Session, date_id: str) -> list[di
     return payload.get("rankings", [])
 
 
+def _fetch_rankings_from_country_page(session: requests.Session, date_id: str, country_code: str = "USA") -> list[dict]:
+    """
+    Fallback parser for newer FIFA date IDs where /api/ranking-overview may return [].
+    Country ranking pages embed a full ranking snapshot inside __NEXT_DATA__.
+    """
+    page_url = COUNTRY_RANKING_URL_TEMPLATE.format(country_code=country_code)
+    response = session.get(
+        page_url,
+        params={"gender": "men", "dateId": date_id},
+        headers=HEADERS_HTML,
+        timeout=30,
+    )
+    response.raise_for_status()
+
+    page_data = _extract_next_data_json(response.text)
+    rows = (
+        page_data.get("props", {})
+        .get("pageProps", {})
+        .get("pageData", {})
+        .get("ranking", {})
+        .get("rankings", {})
+        .get("menRanking", {})
+        .get("rows", [])
+    )
+
+    out: list[dict] = []
+    for row in rows:
+        name = row.get("name")
+        country_code_value = row.get("countryCode")
+        rank = row.get("rank")
+        points = row.get("totalPoints")
+        if name is None or country_code_value is None or rank is None or points is None:
+            continue
+        out.append(
+            {
+                "rankingItem": {
+                    "name": name,
+                    "countryCode": country_code_value,
+                    "rank": rank,
+                    "totalPoints": points,
+                }
+            }
+        )
+
+    return out
+
+
+def _augment_rankings_for_participants(
+    session: requests.Session,
+    rankings: list[dict],
+    participants: list[dict],
+    date_id: str,
+) -> list[dict]:
+    """
+    Ensure ranking rows include all required participant country codes.
+    FIFA country pages reliably include the selected country row even when
+    ranking overview APIs are sparse or empty for newer date IDs.
+    """
+    by_code: dict[str, dict] = {}
+    for row in rankings:
+        item = row.get("rankingItem", {})
+        code = str(item.get("countryCode", "")).strip().upper()
+        if code:
+            by_code[code] = row
+
+    missing_codes: list[str] = []
+    for participant in participants:
+        code = _normalize_participant_code(participant)
+        if not code:
+            continue
+        code = str(code).strip().upper()
+        if code and code not in by_code:
+            missing_codes.append(code)
+
+    for country_code in sorted(set(missing_codes)):
+        try:
+            rows = _fetch_rankings_from_country_page(
+                session=session,
+                date_id=date_id,
+                country_code=country_code,
+            )
+        except requests.HTTPError:
+            continue
+        for row in rows:
+            item = row.get("rankingItem", {})
+            code = str(item.get("countryCode", "")).strip().upper()
+            if code:
+                by_code[code] = row
+
+    out = list(by_code.values())
+    out.sort(key=lambda row: int(row.get("rankingItem", {}).get("rank", 9999)))
+    return out
+
+
 def _pick_latest_nonempty_rankings(session: requests.Session, date_entries: list[dict]) -> tuple[dict, list[dict]]:
     for date_entry in date_entries:
         rankings = _fetch_rankings_for_date(session, date_entry["id"])
+        if not rankings:
+            rankings = _fetch_rankings_from_country_page(session, date_entry["id"])
         if rankings:
             return date_entry, rankings
     raise ParseError("No non-empty ranking payload found for any available FIFA dateId.")
@@ -218,6 +325,12 @@ def main() -> None:
     with requests.Session() as session:
         date_entries = _fetch_date_ids(session)
         selected_date, rankings = _pick_latest_nonempty_rankings(session, date_entries)
+        rankings = _augment_rankings_for_participants(
+            session=session,
+            rankings=rankings,
+            participants=participants,
+            date_id=str(selected_date["id"]),
+        )
 
     payload = _build_output(rankings, participants, selected_date)
 
