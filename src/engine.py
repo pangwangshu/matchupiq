@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -9,12 +10,12 @@ from typing import Protocol
 try:
     from src.models import MatchupCandidate, PredictionResponse
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
-    from src.tournament import TournamentStructureResolver
+    from src.tournament import MatchResultState, TournamentStructureResolver
     from src.world_ranking import WorldRankingTournamentSimulator
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
-    from tournament import TournamentStructureResolver
+    from tournament import MatchResultState, TournamentStructureResolver
     from world_ranking import WorldRankingTournamentSimulator
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
@@ -102,6 +103,61 @@ class MatchupPredictor:
     def _load_fifa_ranking_data(self) -> dict:
         return self.data_provider.load_fifa_ranking_data()
 
+    def _to_int_or_none(self, raw: object) -> int | None:
+        if raw is None:
+            return None
+        try:
+            return int(raw)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_match_number(self, item: dict) -> int | None:
+        direct = self._to_int_or_none(item.get("match_number"))
+        if direct is not None:
+            return direct
+        label = str(item.get("label", ""))
+        match = re.search(r"\bMatch\s+(\d+)\b", label, flags=re.IGNORECASE)
+        if not match:
+            return None
+        return self._to_int_or_none(match.group(1))
+
+    def _load_match_results_state(self) -> dict[int, MatchResultState]:
+        payload = self._load_matches()
+        if not isinstance(payload, dict):
+            return {}
+
+        played_statuses = {"played", "completed", "complete", "final", "finished", "ft"}
+        out: dict[int, MatchResultState] = {}
+        for item in payload.values():
+            if not isinstance(item, dict):
+                continue
+            match_number = self._extract_match_number(item)
+            if match_number is None:
+                continue
+
+            status = str(item.get("status", "")).strip().lower()
+            played = bool(item.get("played")) or status in played_statuses
+            home_team = item.get("confirmed_home") or item.get("home_team") or item.get("home")
+            away_team = item.get("confirmed_away") or item.get("away_team") or item.get("away")
+            home_goals = (
+                self._to_int_or_none(item.get("home_goals"))
+                if item.get("home_goals") is not None
+                else self._to_int_or_none(item.get("home_score"))
+            )
+            away_goals = (
+                self._to_int_or_none(item.get("away_goals"))
+                if item.get("away_goals") is not None
+                else self._to_int_or_none(item.get("away_score"))
+            )
+            out[match_number] = MatchResultState(
+                played=played,
+                home_team=str(home_team) if home_team is not None else None,
+                away_team=str(away_team) if away_team is not None else None,
+                home_goals=home_goals,
+                away_goals=away_goals,
+            )
+        return out
+
     def _resolver(self) -> TournamentStructureResolver:
         world_cup = self._load_world_cup_data()
         return TournamentStructureResolver(
@@ -152,7 +208,10 @@ class MatchupPredictor:
         return resolver.resolve_match_team_pool(match_number, stack)
 
     def _build_rule_based_pairs(self, match_number: int) -> list[tuple[str, str]]:
-        return self._resolver().build_rule_based_pairs(match_number)
+        return self._resolver().build_rule_based_pairs(
+            match_number,
+            match_results=self._load_match_results_state(),
+        )
 
     def _build_baseline_candidates(self, match_id: str, limit: int = 10) -> list[MatchupCandidate]:
         match_number: int | None = None

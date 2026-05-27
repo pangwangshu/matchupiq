@@ -5,6 +5,27 @@ from dataclasses import dataclass
 from typing import Iterable
 
 
+@dataclass(frozen=True)
+class MatchResultState:
+    played: bool
+    home_team: str | None = None
+    away_team: str | None = None
+    home_goals: int | None = None
+    away_goals: int | None = None
+
+
+@dataclass
+class GroupStandingRow:
+    team: str
+    points: int = 0
+    goals_for: int = 0
+    goals_against: int = 0
+
+    @property
+    def goal_difference(self) -> int:
+        return self.goals_for - self.goals_against
+
+
 @dataclass
 class TournamentStructureResolver:
     groups: list[dict]
@@ -23,6 +44,16 @@ class TournamentStructureResolver:
             for match in self.schedule
             if isinstance(match.get("match_number"), int)
         }
+        self.group_stage_matches_by_group: dict[str, list[int]] = {}
+        for match in self.schedule:
+            if match.get("stage") != "group_stage":
+                continue
+            group_name = str(match.get("group", ""))
+            letter = group_name.replace("Group", "").strip().upper()
+            match_number = match.get("match_number")
+            if not letter or not isinstance(match_number, int):
+                continue
+            self.group_stage_matches_by_group.setdefault(letter, []).append(match_number)
         self._cache: dict[int, set[str]] = {}
 
     def parse_fixed_matchup(self, matchup_text: str) -> tuple[str, str] | None:
@@ -49,28 +80,118 @@ class TournamentStructureResolver:
         slot_type = match.group(2).lower()
         return set(groups), slot_type
 
-    def resolve_slot_teams(self, slot_text: str, stack: set[int] | None = None) -> set[str]:
+    def _has_played_score(self, result: MatchResultState | None) -> bool:
+        if result is None or not result.played:
+            return False
+        if result.home_team is None or result.away_team is None:
+            return False
+        if result.home_goals is None or result.away_goals is None:
+            return False
+        return True
+
+    def _group_slot_resolved_teams(
+        self,
+        groups: Iterable[str],
+        slot_type: str,
+        match_results: dict[int, MatchResultState],
+    ) -> set[str]:
+        standings = self.compute_group_standings(match_results=match_results)
+        complete_groups = self.completed_groups(match_results=match_results)
+        resolved: set[str] = set()
+
+        slot_index_by_type = {
+            "winners": 0,
+            "runners-up": 1,
+            "third place": 2,
+        }
+        idx = slot_index_by_type.get(slot_type)
+        if idx is None:
+            return resolved
+
+        for group in groups:
+            if group not in complete_groups:
+                continue
+            rows = standings.get(group, [])
+            if len(rows) > idx:
+                resolved.add(rows[idx].team)
+        return resolved
+
+    def _match_side_team(
+        self,
+        match_number: int,
+        outcome: str,
+        match_results: dict[int, MatchResultState],
+    ) -> str | None:
+        result = match_results.get(match_number)
+        if not self._has_played_score(result):
+            return None
+        assert result is not None
+        if result.home_goals == result.away_goals:
+            return None
+        home_won = result.home_goals > result.away_goals
+        if outcome == "winner":
+            return result.home_team if home_won else result.away_team
+        if outcome == "loser":
+            return result.away_team if home_won else result.home_team
+        return None
+
+    def resolve_slot_teams(
+        self,
+        slot_text: str,
+        stack: set[int] | None = None,
+        match_results: dict[int, MatchResultState] | None = None,
+    ) -> set[str]:
         slot_text = slot_text.strip()
         stack = stack or set()
+        match_results = match_results or {}
 
         group_slot = self.parse_group_slot(slot_text)
         if group_slot:
-            groups, _slot_type = group_slot
-            return self.teams_from_groups(groups)
+            groups, slot_type = group_slot
+            resolved = self._group_slot_resolved_teams(
+                groups=groups,
+                slot_type=slot_type,
+                match_results=match_results,
+            )
+            unresolved_groups = set(groups) - self.completed_groups(match_results)
+            fallback = self.teams_from_groups(unresolved_groups)
+            return resolved | fallback
 
         winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
         if winner_match:
-            return self.resolve_match_team_pool(int(winner_match.group(1)), stack)
+            return self.resolve_match_team_pool(
+                int(winner_match.group(1)),
+                stack,
+                match_results=match_results,
+                outcome="winner",
+            )
 
         loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
         if loser_match:
-            return self.resolve_match_team_pool(int(loser_match.group(1)), stack)
+            return self.resolve_match_team_pool(
+                int(loser_match.group(1)),
+                stack,
+                match_results=match_results,
+                outcome="loser",
+            )
 
         return set()
 
-    def resolve_match_team_pool(self, match_number: int, stack: set[int] | None = None) -> set[str]:
+    def resolve_match_team_pool(
+        self,
+        match_number: int,
+        stack: set[int] | None = None,
+        match_results: dict[int, MatchResultState] | None = None,
+        outcome: str | None = None,
+    ) -> set[str]:
         stack = stack or set()
-        if match_number in self._cache:
+        match_results = match_results or {}
+        if outcome:
+            resolved_team = self._match_side_team(match_number, outcome, match_results)
+            if resolved_team is not None:
+                return {resolved_team}
+
+        if not match_results and match_number in self._cache and outcome is None:
             return self._cache[match_number]
         if match_number in stack:
             return set()
@@ -83,24 +204,86 @@ class TournamentStructureResolver:
         matchup_text = str(match.get("comment") or match.get("matchup") or "")
         fixed = self.parse_fixed_matchup(matchup_text)
         if not fixed:
-            self._cache[match_number] = set()
+            if not match_results and outcome is None:
+                self._cache[match_number] = set()
             stack.remove(match_number)
-            return self._cache[match_number]
+            return set()
 
         left_slot, right_slot = fixed
-        left_teams = self.resolve_slot_teams(left_slot, stack)
-        right_teams = self.resolve_slot_teams(right_slot, stack)
+        left_teams = self.resolve_slot_teams(left_slot, stack, match_results=match_results)
+        right_teams = self.resolve_slot_teams(right_slot, stack, match_results=match_results)
 
         if not left_teams and " vs " in matchup_text:
             left_teams = {left_slot}
         if not right_teams and " vs " in matchup_text:
             right_teams = {right_slot}
 
-        self._cache[match_number] = left_teams | right_teams
+        resolved_pool = left_teams | right_teams
+        if not match_results and outcome is None:
+            self._cache[match_number] = resolved_pool
         stack.remove(match_number)
-        return self._cache[match_number]
+        return resolved_pool
 
-    def build_rule_based_pairs(self, match_number: int) -> list[tuple[str, str]]:
+    def compute_group_standings(
+        self,
+        match_results: dict[int, MatchResultState],
+    ) -> dict[str, list[GroupStandingRow]]:
+        tables: dict[str, dict[str, GroupStandingRow]] = {
+            group: {team: GroupStandingRow(team=team) for team in teams}
+            for group, teams in self.group_to_teams.items()
+        }
+        for group, match_numbers in self.group_stage_matches_by_group.items():
+            table = tables.get(group, {})
+            for match_number in match_numbers:
+                result = match_results.get(match_number)
+                if not self._has_played_score(result):
+                    continue
+                assert result is not None
+                home = table.get(result.home_team)
+                away = table.get(result.away_team)
+                if home is None or away is None:
+                    continue
+                home.goals_for += result.home_goals
+                home.goals_against += result.away_goals
+                away.goals_for += result.away_goals
+                away.goals_against += result.home_goals
+
+                if result.home_goals > result.away_goals:
+                    home.points += 3
+                elif result.home_goals < result.away_goals:
+                    away.points += 3
+                else:
+                    home.points += 1
+                    away.points += 1
+
+        return {
+            group: sorted(
+                rows.values(),
+                key=lambda row: (
+                    -row.points,
+                    -row.goal_difference,
+                    -row.goals_for,
+                    row.team,
+                ),
+            )
+            for group, rows in tables.items()
+        }
+
+    def completed_groups(self, match_results: dict[int, MatchResultState]) -> set[str]:
+        complete: set[str] = set()
+        for group, match_numbers in self.group_stage_matches_by_group.items():
+            if not match_numbers:
+                continue
+            if all(self._has_played_score(match_results.get(match_number)) for match_number in match_numbers):
+                complete.add(group)
+        return complete
+
+    def build_rule_based_pairs(
+        self,
+        match_number: int,
+        match_results: dict[int, MatchResultState] | None = None,
+    ) -> list[tuple[str, str]]:
+        match_results = match_results or {}
         selected_match = next(
             (match for match in self.schedule if str(match.get("match_number")) == str(match_number)),
             None,
@@ -114,8 +297,8 @@ class TournamentStructureResolver:
             return []
         left_slot, right_slot = slots
 
-        left_teams = self.resolve_slot_teams(left_slot)
-        right_teams = self.resolve_slot_teams(right_slot)
+        left_teams = self.resolve_slot_teams(left_slot, match_results=match_results)
+        right_teams = self.resolve_slot_teams(right_slot, match_results=match_results)
         if not left_teams or not right_teams:
             return []
 

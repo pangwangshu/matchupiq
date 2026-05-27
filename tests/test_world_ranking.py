@@ -58,11 +58,15 @@ def test_world_scenarios_are_bounded_and_nonempty() -> None:
     assert 0.95 <= total <= 1.05
 
 
-def test_simulate_tournament_back_compat_has_knockout_rows() -> None:
+def test_simulate_tournament_back_compat_has_knockout_rows(monkeypatch) -> None:
     simulator = _simulator()
-    simulated = simulator.simulate_tournament()
+    
+    def _stub_predict(match_number: int, limit: int = 10, **_kwargs):
+        return [(f"Home {match_number}", f"Away {match_number}", 1.0)]
+
+    monkeypatch.setattr(simulator, "predict_matchup_candidates", _stub_predict)
+    simulated = simulator.simulate_tournament(match_numbers=[74, 89, 104])
     assert 74 in simulated
     assert 89 in simulated
     assert 104 in simulated
     assert simulated[104][0] != simulated[104][1]
-

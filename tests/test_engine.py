@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.engine import MatchupPredictor
+from src.engine import MatchDataProvider, MatchupPredictor
 
 
 def test_parse_group_slot_covers_winners_runners_up_and_third_place() -> None:
@@ -77,3 +77,37 @@ def test_predict_is_deterministic_for_world_ranking_path() -> None:
     pairs_b = [(candidate.home_team, candidate.away_team, candidate.score) for candidate in result_b.top_candidates]
     assert pairs_a == pairs_b
 
+
+def test_build_rule_based_pairs_narrows_with_played_results_state() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {
+                "stub-74": {
+                    "label": "Round of 32 - Match 74",
+                    "status": "completed",
+                    "confirmed_home": "Germany",
+                    "confirmed_away": "Sweden",
+                    "home_goals": 2,
+                    "away_goals": 1,
+                }
+            }
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            participants = world.get("participants", [])
+            return [p["name"] for p in participants if p.get("name")]
+
+    predictor = MatchupPredictor(data_provider=StubDataProvider())
+    pairs = predictor._build_rule_based_pairs(89)
+
+    assert pairs
+    assert all(home == "Germany" for home, _away in pairs)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.engine import MatchupPredictor
-from src.tournament import TournamentStructureResolver
+from src.tournament import MatchResultState, TournamentStructureResolver
 
 
 def _resolver() -> TournamentStructureResolver:
@@ -81,3 +81,39 @@ def test_build_rule_based_pairs_for_winner_winner_dependency() -> None:
         assert home in valid_74
         assert away in valid_77
         assert home != away
+
+
+def test_resolve_winner_and_loser_slot_uses_played_result() -> None:
+    resolver = _resolver()
+    match_results = {
+        74: MatchResultState(
+            played=True,
+            home_team="Germany",
+            away_team="Sweden",
+            home_goals=2,
+            away_goals=1,
+        )
+    }
+
+    winner = resolver.resolve_slot_teams("Winner Match 74", match_results=match_results)
+    loser = resolver.resolve_slot_teams("Loser Match 74", match_results=match_results)
+
+    assert winner == {"Germany"}
+    assert loser == {"Sweden"}
+
+
+def test_build_rule_based_pairs_uses_resolved_winner_team_when_available() -> None:
+    resolver = _resolver()
+    match_results = {
+        74: MatchResultState(
+            played=True,
+            home_team="Germany",
+            away_team="Sweden",
+            home_goals=2,
+            away_goals=1,
+        )
+    }
+
+    pairs = resolver.build_rule_based_pairs(89, match_results=match_results)
+    assert pairs
+    assert all(home == "Germany" for home, _away in pairs)

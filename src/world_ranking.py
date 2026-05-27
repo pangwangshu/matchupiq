@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from math import exp
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 try:
     from src.tournament import TournamentStructureResolver
@@ -737,9 +737,14 @@ class WorldRankingTournamentSimulator:
         return [(home, away, score / total) for (home, away), score in ranked]
 
     # Backward compatibility helper used by older call sites/tests.
-    def simulate_tournament(self) -> dict[int, tuple[str, str]]:
+    def simulate_tournament(self, match_numbers: Iterable[int] | None = None) -> dict[int, tuple[str, str]]:
         out: dict[int, tuple[str, str]] = {}
-        for match_number in sorted(self.match_by_number.keys()):
+        selected_match_numbers = (
+            sorted(int(match_number) for match_number in match_numbers)
+            if match_numbers is not None
+            else sorted(self.match_by_number.keys())
+        )
+        for match_number in selected_match_numbers:
             candidates = self.predict_matchup_candidates(match_number=match_number, limit=1)
             if not candidates:
                 continue
