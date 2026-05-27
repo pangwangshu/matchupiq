@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from src.tournament import TournamentStructureResolver
+    from src.tournament import MatchResultState, TournamentStructureResolver
 except ModuleNotFoundError:
-    from tournament import TournamentStructureResolver
+    from tournament import MatchResultState, TournamentStructureResolver
 
 DEFAULT_MODEL_CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "world_ranking_model_config.json"
 
@@ -106,6 +106,7 @@ class WorldRankingTournamentSimulator:
         self,
         world_cup_data: dict,
         fifa_ranking_data: dict,
+        match_results: dict[int, MatchResultState] | None = None,
         draw_band: float | None = None,
         decisive_band: float | None = None,
         model_config: WorldRankingModelConfig | None = None,
@@ -130,6 +131,7 @@ class WorldRankingTournamentSimulator:
             if all_points
             else self.model_config.default_points_fallback
         )
+        self.match_results = match_results or {}
         self.default_rank = self.model_config.default_rank_for_unlisted_team
         self.group_matches = self._build_group_matches()
         self.match_by_number = {
@@ -165,8 +167,8 @@ class WorldRankingTournamentSimulator:
             )
         return out
 
-    def _build_group_matches(self) -> dict[str, list[tuple[str, str]]]:
-        out: dict[str, list[tuple[str, str]]] = {}
+    def _build_group_matches(self) -> dict[str, list[tuple[int, str, str]]]:
+        out: dict[str, list[tuple[int, str, str]]] = {}
         group_stage = sorted(
             [
                 match
@@ -183,8 +185,21 @@ class WorldRankingTournamentSimulator:
             slots = self.resolver.parse_fixed_matchup(str(match.get("matchup") or match.get("comment") or ""))
             if not slots:
                 continue
-            out.setdefault(group, []).append(slots)
+            match_number = match.get("match_number")
+            if not isinstance(match_number, int):
+                continue
+            out.setdefault(group, []).append((match_number, slots[0], slots[1]))
         return out
+
+    def _played_result(self, match_number: int) -> MatchResultState | None:
+        result = self.match_results.get(match_number)
+        if result is None or not result.played:
+            return None
+        if result.home_team is None or result.away_team is None:
+            return None
+        if result.home_goals is None or result.away_goals is None:
+            return None
+        return result
 
     def _team_ranking(self, team: str) -> TeamRanking:
         return self.rankings_by_team.get(
@@ -320,15 +335,35 @@ class WorldRankingTournamentSimulator:
         initial_table = self._init_group_table(group)
         states: list[tuple[dict[str, TeamStanding], float]] = [(initial_table, 1.0)]
 
-        for home_team, away_team in matches:
+        for match_number, home_team, away_team in matches:
             merged: dict[tuple, tuple[dict[str, TeamStanding], float]] = {}
+            fixed_result = self._played_result(match_number)
             for table, state_probability in states:
-                for outcome in self._group_outcomes(home_team, away_team):
+                outcomes: list[tuple[str, str, MatchOutcome]]
+                if fixed_result is not None:
+                    outcomes = [
+                        (
+                            fixed_result.home_team,
+                            fixed_result.away_team,
+                            MatchOutcome(
+                                home_goals=fixed_result.home_goals,
+                                away_goals=fixed_result.away_goals,
+                                probability=1.0,
+                            ),
+                        )
+                    ]
+                else:
+                    outcomes = [
+                        (home_team, away_team, outcome)
+                        for outcome in self._group_outcomes(home_team, away_team)
+                    ]
+
+                for outcome_home, outcome_away, outcome in outcomes:
                     branch_probability = state_probability * outcome.probability
                     if branch_probability < min_branch_probability:
                         continue
                     next_table = self._copy_table(table)
-                    self._apply_result(next_table, home_team, away_team, outcome)
+                    self._apply_result(next_table, outcome_home, outcome_away, outcome)
                     signature = self._table_signature(next_table)
                     if signature in merged:
                         prev_table, prev_probability = merged[signature]
@@ -547,6 +582,18 @@ class WorldRankingTournamentSimulator:
         key = (match_number, "winner")
         if key in memo:
             return memo[key]
+        fixed_result = self._played_result(match_number)
+        if fixed_result is not None:
+            if fixed_result.home_goals == fixed_result.away_goals:
+                memo[key] = {}
+                return memo[key]
+            winner = (
+                fixed_result.home_team
+                if fixed_result.home_goals > fixed_result.away_goals
+                else fixed_result.away_team
+            )
+            memo[key] = {winner: 1.0}
+            return memo[key]
         match = self.match_by_number.get(match_number)
         if not match:
             memo[key] = {}
@@ -595,6 +642,18 @@ class WorldRankingTournamentSimulator:
     ) -> dict[str, float]:
         key = (match_number, "loser")
         if key in memo:
+            return memo[key]
+        fixed_result = self._played_result(match_number)
+        if fixed_result is not None:
+            if fixed_result.home_goals == fixed_result.away_goals:
+                memo[key] = {}
+                return memo[key]
+            loser = (
+                fixed_result.away_team
+                if fixed_result.home_goals > fixed_result.away_goals
+                else fixed_result.home_team
+            )
+            memo[key] = {loser: 1.0}
             return memo[key]
         match = self.match_by_number.get(match_number)
         if not match:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.engine import MatchupPredictor
+from src.tournament import MatchResultState
 from src.world_ranking import WorldRankingTournamentSimulator
 
 
@@ -70,3 +71,34 @@ def test_simulate_tournament_back_compat_has_knockout_rows(monkeypatch) -> None:
     assert 89 in simulated
     assert 104 in simulated
     assert simulated[104][0] != simulated[104][1]
+
+
+def test_completed_knockout_match_narrows_candidate_space() -> None:
+    predictor = MatchupPredictor()
+    world_cup_data = predictor._load_world_cup_data()
+    fifa_ranking_data = predictor._load_fifa_ranking_data()
+
+    baseline_simulator = WorldRankingTournamentSimulator(
+        world_cup_data=world_cup_data,
+        fifa_ranking_data=fifa_ranking_data,
+    )
+    baseline = baseline_simulator.predict_matchup_candidates(match_number=89, limit=10)
+    assert baseline
+    assert len({home for home, _away, _score in baseline}) > 1
+
+    constrained_simulator = WorldRankingTournamentSimulator(
+        world_cup_data=world_cup_data,
+        fifa_ranking_data=fifa_ranking_data,
+        match_results={
+            74: MatchResultState(
+                played=True,
+                home_team="Germany",
+                away_team="Sweden",
+                home_goals=2,
+                away_goals=1,
+            )
+        },
+    )
+    constrained = constrained_simulator.predict_matchup_candidates(match_number=89, limit=10)
+    assert constrained
+    assert {home for home, _away, _score in constrained} == {"Germany"}

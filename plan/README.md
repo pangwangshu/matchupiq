@@ -19,5 +19,6 @@ The World Cup 2026 schedule in this project starts on **June 11, 2026** (`match_
 ## Current Status
 
 - Phase A completed in `src/engine.py` with behavior preserved and tests passing.
-- Next recommended step: Phase B.
+- Phase B completed with live-result-aware resolver and scenario narrowing behavior.
+- Next recommended step: Phase C.
 - Community feedback capture for future reference: `feedback/reddit-feedback-2026-05-27.md`.

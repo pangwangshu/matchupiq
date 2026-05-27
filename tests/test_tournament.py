@@ -117,3 +117,23 @@ def test_build_rule_based_pairs_uses_resolved_winner_team_when_available() -> No
     pairs = resolver.build_rule_based_pairs(89, match_results=match_results)
     assert pairs
     assert all(home == "Germany" for home, _away in pairs)
+
+
+def test_group_slots_collapse_to_ranked_teams_when_group_completed() -> None:
+    resolver = _resolver()
+    match_results = {
+        1: MatchResultState(played=True, home_team="Mexico", away_team="South Africa", home_goals=1, away_goals=0),
+        2: MatchResultState(played=True, home_team="South Korea", away_team="Czech Republic", home_goals=0, away_goals=0),
+        25: MatchResultState(played=True, home_team="Czech Republic", away_team="South Africa", home_goals=0, away_goals=2),
+        28: MatchResultState(played=True, home_team="Mexico", away_team="South Korea", home_goals=2, away_goals=0),
+        53: MatchResultState(played=True, home_team="Czech Republic", away_team="Mexico", home_goals=1, away_goals=1),
+        54: MatchResultState(played=True, home_team="South Africa", away_team="South Korea", home_goals=1, away_goals=2),
+    }
+
+    winners = resolver.resolve_slot_teams("Group A winners", match_results=match_results)
+    runners_up = resolver.resolve_slot_teams("Group A runners-up", match_results=match_results)
+    third_place = resolver.resolve_slot_teams("Group A third place", match_results=match_results)
+
+    assert winners == {"Mexico"}
+    assert runners_up == {"South Korea"}
+    assert third_place == {"South Africa"}

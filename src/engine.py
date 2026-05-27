@@ -43,7 +43,12 @@ class TournamentSimulator(Protocol):
 
 
 class TournamentSimulatorFactory(Protocol):
-    def create(self, world_cup_data: dict, fifa_ranking_data: dict) -> TournamentSimulator:
+    def create(
+        self,
+        world_cup_data: dict,
+        fifa_ranking_data: dict,
+        match_results: dict[int, MatchResultState] | None = None,
+    ) -> TournamentSimulator:
         ...
 
 
@@ -72,10 +77,16 @@ class StaticJsonMatchDataProvider:
 
 
 class WorldRankingSimulatorFactory:
-    def create(self, world_cup_data: dict, fifa_ranking_data: dict) -> WorldRankingTournamentSimulator:
+    def create(
+        self,
+        world_cup_data: dict,
+        fifa_ranking_data: dict,
+        match_results: dict[int, MatchResultState] | None = None,
+    ) -> WorldRankingTournamentSimulator:
         return WorldRankingTournamentSimulator(
             world_cup_data=world_cup_data,
             fifa_ranking_data=fifa_ranking_data,
+            match_results=match_results,
         )
 
 
@@ -272,6 +283,7 @@ class MatchupPredictor:
         simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
             fifa_ranking_data=fifa_ranking_data,
+            match_results=self._load_match_results_state(),
         )
         predicted = simulator.predict_matchup_candidates(
             match_number=match_number,
