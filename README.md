@@ -49,3 +49,4 @@ POST `http://127.0.0.1:8000/predict`
 - Current signal providers are scaffolded with deterministic example values.
 - Replace `SignalProvider` implementations in `src/signals.py` with live data sources.
 - Match metadata is stored in `data/matches_2026.json`.
+- World-ranking model tuning parameters live in `data/world_ranking_model_config.json`.

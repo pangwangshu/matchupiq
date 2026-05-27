@@ -1,13 +1,60 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from math import exp
+from pathlib import Path
+from typing import Any
 
 try:
     from src.tournament import TournamentStructureResolver
 except ModuleNotFoundError:
     from tournament import TournamentStructureResolver
+
+DEFAULT_MODEL_CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "world_ranking_model_config.json"
+
+
+@dataclass
+class WorldRankingModelConfig:
+    draw_band: float = 20.0
+    decisive_band: float = 80.0
+
+    group_draw_probability_min: float = 0.10
+    group_draw_probability_max: float = 0.32
+    group_draw_probability_base: float = 0.30
+    group_draw_diff_divisor: float = 700.0
+    group_win_sigmoid_divisor: float = 85.0
+
+    knockout_win_sigmoid_divisor: float = 75.0
+    knockout_rank_bias_divisor: float = 400.0
+    knockout_win_probability_min: float = 0.05
+    knockout_win_probability_max: float = 0.95
+
+    slot_contender_min_weight: float = 1.0
+
+    default_rank_for_unlisted_team: int = 120
+    default_points_fallback: float = 1400.0
+
+    prediction_group_beam_width: int = 64
+    prediction_group_max_scenarios: int = 20
+    prediction_world_beam_width: int = 256
+    prediction_min_branch_probability: float = 1e-5
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> WorldRankingModelConfig:
+        config = cls()
+        for field_name in cls.__dataclass_fields__.keys():
+            if field_name in raw:
+                setattr(config, field_name, raw[field_name])
+        return config
+
+    @classmethod
+    def load(cls, path: Path) -> WorldRankingModelConfig:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"Model config must be a JSON object: {path}")
+        return cls.from_dict(payload)
 
 
 @dataclass(frozen=True)
@@ -59,26 +106,51 @@ class WorldRankingTournamentSimulator:
         self,
         world_cup_data: dict,
         fifa_ranking_data: dict,
-        draw_band: float = 20.0,
-        decisive_band: float = 80.0,
+        draw_band: float | None = None,
+        decisive_band: float | None = None,
+        model_config: WorldRankingModelConfig | None = None,
+        model_config_path: Path | None = DEFAULT_MODEL_CONFIG_PATH,
     ) -> None:
         self.world_cup_data = world_cup_data
-        self.draw_band = draw_band
-        self.decisive_band = decisive_band
+        self.model_config = self._load_model_config(model_config, model_config_path)
+        if draw_band is not None:
+            self.model_config.draw_band = draw_band
+        if decisive_band is not None:
+            self.model_config.decisive_band = decisive_band
+        self.draw_band = self.model_config.draw_band
+        self.decisive_band = self.model_config.decisive_band
         self.resolver = TournamentStructureResolver(
             groups=world_cup_data.get("groups", []),
             schedule=world_cup_data.get("schedule", []),
         )
         self.rankings_by_team = self._build_ranking_map(fifa_ranking_data)
         all_points = sorted([entry.fifa_points for entry in self.rankings_by_team.values()])
-        self.default_points = all_points[len(all_points) // 2] if all_points else 1400.0
-        self.default_rank = 120
+        self.default_points = (
+            all_points[len(all_points) // 2]
+            if all_points
+            else self.model_config.default_points_fallback
+        )
+        self.default_rank = self.model_config.default_rank_for_unlisted_team
         self.group_matches = self._build_group_matches()
         self.match_by_number = {
             int(match["match_number"]): match
             for match in self.world_cup_data.get("schedule", [])
             if isinstance(match.get("match_number"), int)
         }
+
+    def _load_model_config(
+        self,
+        model_config: WorldRankingModelConfig | None,
+        model_config_path: Path | None,
+    ) -> WorldRankingModelConfig:
+        if model_config is not None:
+            return model_config
+        if model_config_path is not None and model_config_path.exists():
+            try:
+                return WorldRankingModelConfig.load(model_config_path)
+            except Exception:
+                return WorldRankingModelConfig()
+        return WorldRankingModelConfig()
 
     def _build_ranking_map(self, fifa_ranking_data: dict) -> dict[str, TeamRanking]:
         out: dict[str, TeamRanking] = {}
@@ -134,8 +206,15 @@ class WorldRankingTournamentSimulator:
         diff = self._pairwise_strength_diff(home_team, away_team)
         abs_diff = abs(diff)
 
-        draw_probability = max(0.10, min(0.32, 0.30 - (abs_diff / 700.0)))
-        home_given_no_draw = self._sigmoid(diff / 85.0)
+        draw_probability = max(
+            self.model_config.group_draw_probability_min,
+            min(
+                self.model_config.group_draw_probability_max,
+                self.model_config.group_draw_probability_base
+                - (abs_diff / self.model_config.group_draw_diff_divisor),
+            ),
+        )
+        home_given_no_draw = self._sigmoid(diff / self.model_config.group_win_sigmoid_divisor)
         home_win_probability = (1.0 - draw_probability) * home_given_no_draw
         away_win_probability = max(0.0, 1.0 - draw_probability - home_win_probability)
 
@@ -148,13 +227,16 @@ class WorldRankingTournamentSimulator:
 
     def _knockout_home_win_probability(self, home_team: str, away_team: str) -> float:
         diff = self._pairwise_strength_diff(home_team, away_team)
-        base = self._sigmoid(diff / 75.0)
+        base = self._sigmoid(diff / self.model_config.knockout_win_sigmoid_divisor)
         if abs(diff) <= self.draw_band:
             rank_home = self._team_ranking(home_team).fifa_rank
             rank_away = self._team_ranking(away_team).fifa_rank
-            rank_bias = (rank_away - rank_home) / 400.0
+            rank_bias = (rank_away - rank_home) / self.model_config.knockout_rank_bias_divisor
             base = 0.5 + rank_bias
-        return max(0.05, min(0.95, base))
+        return max(
+            self.model_config.knockout_win_probability_min,
+            min(self.model_config.knockout_win_probability_max, base),
+        )
 
     def _standing_sort_key(self, standing: TeamStanding) -> tuple:
         team_rank = self._team_ranking(standing.team)
@@ -438,7 +520,7 @@ class WorldRankingTournamentSimulator:
             dist: dict[str, float] = {}
             for contender in contenders:
                 points = self._team_ranking(contender).fifa_points
-                weight = max(points, 1.0)
+                weight = max(points, self.model_config.slot_contender_min_weight)
                 total += weight
                 dist[contender] = weight
             return {team: weight / total for team, weight in dist.items()}
@@ -602,11 +684,31 @@ class WorldRankingTournamentSimulator:
         self,
         match_number: int,
         limit: int = 10,
-        group_beam_width: int = 64,
-        group_max_scenarios: int = 20,
-        world_beam_width: int = 256,
-        min_branch_probability: float = 1e-5,
+        group_beam_width: int | None = None,
+        group_max_scenarios: int | None = None,
+        world_beam_width: int | None = None,
+        min_branch_probability: float | None = None,
     ) -> list[tuple[str, str, float]]:
+        group_beam_width = (
+            self.model_config.prediction_group_beam_width
+            if group_beam_width is None
+            else group_beam_width
+        )
+        group_max_scenarios = (
+            self.model_config.prediction_group_max_scenarios
+            if group_max_scenarios is None
+            else group_max_scenarios
+        )
+        world_beam_width = (
+            self.model_config.prediction_world_beam_width
+            if world_beam_width is None
+            else world_beam_width
+        )
+        min_branch_probability = (
+            self.model_config.prediction_min_branch_probability
+            if min_branch_probability is None
+            else min_branch_probability
+        )
         worlds = self._beam_world_scenarios(
             group_beam_width=group_beam_width,
             group_max_scenarios=group_max_scenarios,
