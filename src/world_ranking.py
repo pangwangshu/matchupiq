@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from math import exp
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Protocol
 
 try:
     from src.tournament import MatchResultState, TournamentStructureResolver
@@ -64,6 +64,78 @@ class TeamRanking:
     fifa_rank: int
 
 
+class StrengthProvider(Protocol):
+    def team_rating(self, team: str) -> float:
+        ...
+
+    def team_rank(self, team: str) -> int:
+        ...
+
+    def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
+        ...
+
+    def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
+        ...
+
+
+class FifaRankingStrengthProvider:
+    def __init__(
+        self,
+        fifa_ranking_data: dict,
+        *,
+        default_rank_for_unlisted_team: int,
+        default_points_fallback: float,
+    ) -> None:
+        self.rankings_by_team = self._build_ranking_map(fifa_ranking_data)
+        all_points = sorted([entry.fifa_points for entry in self.rankings_by_team.values()])
+        self.default_points = (
+            all_points[len(all_points) // 2]
+            if all_points
+            else default_points_fallback
+        )
+        self.default_rank = default_rank_for_unlisted_team
+
+    def _build_ranking_map(self, fifa_ranking_data: dict) -> dict[str, TeamRanking]:
+        out: dict[str, TeamRanking] = {}
+        for row in fifa_ranking_data.get("participants_rankings", []):
+            team = str(row.get("participant_name", "")).strip()
+            if not team:
+                continue
+            out[team] = TeamRanking(
+                team=team,
+                fifa_points=float(row.get("points", 0.0)),
+                fifa_rank=int(row.get("rank", 999)),
+            )
+        return out
+
+    def _team_ranking(self, team: str) -> TeamRanking:
+        return self.rankings_by_team.get(
+            team,
+            TeamRanking(team=team, fifa_points=self.default_points, fifa_rank=self.default_rank),
+        )
+
+    @staticmethod
+    def _sigmoid(value: float) -> float:
+        if value >= 0:
+            z = exp(-value)
+            return 1.0 / (1.0 + z)
+        z = exp(value)
+        return z / (1.0 + z)
+
+    def team_rating(self, team: str) -> float:
+        return self._team_ranking(team).fifa_points
+
+    def team_rank(self, team: str) -> int:
+        return self._team_ranking(team).fifa_rank
+
+    def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
+        return self.team_rating(team_a) - self.team_rating(team_b)
+
+    def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
+        diff = self.pairwise_strength_diff(team_a, team_b)
+        return self._sigmoid(diff / sigmoid_divisor)
+
+
 @dataclass
 class TeamStanding:
     team: str
@@ -105,7 +177,8 @@ class WorldRankingTournamentSimulator:
     def __init__(
         self,
         world_cup_data: dict,
-        fifa_ranking_data: dict,
+        fifa_ranking_data: dict | None = None,
+        strength_provider: StrengthProvider | None = None,
         match_results: dict[int, MatchResultState] | None = None,
         draw_band: float | None = None,
         decisive_band: float | None = None,
@@ -124,15 +197,17 @@ class WorldRankingTournamentSimulator:
             groups=world_cup_data.get("groups", []),
             schedule=world_cup_data.get("schedule", []),
         )
-        self.rankings_by_team = self._build_ranking_map(fifa_ranking_data)
-        all_points = sorted([entry.fifa_points for entry in self.rankings_by_team.values()])
-        self.default_points = (
-            all_points[len(all_points) // 2]
-            if all_points
-            else self.model_config.default_points_fallback
-        )
+        if strength_provider is not None:
+            self.strength_provider = strength_provider
+        else:
+            if fifa_ranking_data is None:
+                raise ValueError("fifa_ranking_data is required when no strength_provider is supplied.")
+            self.strength_provider = FifaRankingStrengthProvider(
+                fifa_ranking_data=fifa_ranking_data,
+                default_rank_for_unlisted_team=self.model_config.default_rank_for_unlisted_team,
+                default_points_fallback=self.model_config.default_points_fallback,
+            )
         self.match_results = match_results or {}
-        self.default_rank = self.model_config.default_rank_for_unlisted_team
         self.group_matches = self._build_group_matches()
         self.match_by_number = {
             int(match["match_number"]): match
@@ -153,19 +228,6 @@ class WorldRankingTournamentSimulator:
             except Exception:
                 return WorldRankingModelConfig()
         return WorldRankingModelConfig()
-
-    def _build_ranking_map(self, fifa_ranking_data: dict) -> dict[str, TeamRanking]:
-        out: dict[str, TeamRanking] = {}
-        for row in fifa_ranking_data.get("participants_rankings", []):
-            team = str(row.get("participant_name", "")).strip()
-            if not team:
-                continue
-            out[team] = TeamRanking(
-                team=team,
-                fifa_points=float(row.get("points", 0.0)),
-                fifa_rank=int(row.get("rank", 999)),
-            )
-        return out
 
     def _build_group_matches(self) -> dict[str, list[tuple[int, str, str]]]:
         out: dict[str, list[tuple[int, str, str]]] = {}
@@ -202,20 +264,14 @@ class WorldRankingTournamentSimulator:
         return result
 
     def _team_ranking(self, team: str) -> TeamRanking:
-        return self.rankings_by_team.get(
-            team,
-            TeamRanking(team=team, fifa_points=self.default_points, fifa_rank=self.default_rank),
+        return TeamRanking(
+            team=team,
+            fifa_points=self.strength_provider.team_rating(team),
+            fifa_rank=self.strength_provider.team_rank(team),
         )
 
     def _pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
-        return self._team_ranking(team_a).fifa_points - self._team_ranking(team_b).fifa_points
-
-    def _sigmoid(self, value: float) -> float:
-        if value >= 0:
-            z = exp(-value)
-            return 1.0 / (1.0 + z)
-        z = exp(value)
-        return z / (1.0 + z)
+        return self.strength_provider.pairwise_strength_diff(team_a, team_b)
 
     def _group_outcomes(self, home_team: str, away_team: str) -> list[MatchOutcome]:
         diff = self._pairwise_strength_diff(home_team, away_team)
@@ -229,7 +285,11 @@ class WorldRankingTournamentSimulator:
                 - (abs_diff / self.model_config.group_draw_diff_divisor),
             ),
         )
-        home_given_no_draw = self._sigmoid(diff / self.model_config.group_win_sigmoid_divisor)
+        home_given_no_draw = self.strength_provider.pairwise_win_probability(
+            home_team,
+            away_team,
+            sigmoid_divisor=self.model_config.group_win_sigmoid_divisor,
+        )
         home_win_probability = (1.0 - draw_probability) * home_given_no_draw
         away_win_probability = max(0.0, 1.0 - draw_probability - home_win_probability)
 
@@ -241,11 +301,15 @@ class WorldRankingTournamentSimulator:
         ]
 
     def _knockout_home_win_probability(self, home_team: str, away_team: str) -> float:
-        diff = self._pairwise_strength_diff(home_team, away_team)
-        base = self._sigmoid(diff / self.model_config.knockout_win_sigmoid_divisor)
+        diff = self.strength_provider.pairwise_strength_diff(home_team, away_team)
+        base = self.strength_provider.pairwise_win_probability(
+            home_team,
+            away_team,
+            sigmoid_divisor=self.model_config.knockout_win_sigmoid_divisor,
+        )
         if abs(diff) <= self.draw_band:
-            rank_home = self._team_ranking(home_team).fifa_rank
-            rank_away = self._team_ranking(away_team).fifa_rank
+            rank_home = self.strength_provider.team_rank(home_team)
+            rank_away = self.strength_provider.team_rank(away_team)
             rank_bias = (rank_away - rank_home) / self.model_config.knockout_rank_bias_divisor
             base = 0.5 + rank_bias
         return max(

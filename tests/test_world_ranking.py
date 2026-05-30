@@ -102,3 +102,37 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     constrained = constrained_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert constrained
     assert {home for home, _away, _score in constrained} == {"Germany"}
+
+
+def test_custom_strength_provider_is_supported_and_deterministic() -> None:
+    class FixedStrengthProvider:
+        def __init__(self) -> None:
+            self.win_probability_calls = 0
+
+        def team_rating(self, team: str) -> float:
+            return 1500.0
+
+        def team_rank(self, team: str) -> int:
+            return 100
+
+        def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
+            return self.team_rating(team_a) - self.team_rating(team_b)
+
+        def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
+            self.win_probability_calls += 1
+            _ = sigmoid_divisor
+            return 0.5
+
+    predictor = MatchupPredictor()
+    provider = FixedStrengthProvider()
+    simulator = WorldRankingTournamentSimulator(
+        world_cup_data=predictor._load_world_cup_data(),
+        strength_provider=provider,
+    )
+
+    first = simulator.predict_matchup_candidates(match_number=82, limit=10)
+    second = simulator.predict_matchup_candidates(match_number=82, limit=10)
+
+    assert first
+    assert first == second
+    assert provider.win_probability_calls > 0

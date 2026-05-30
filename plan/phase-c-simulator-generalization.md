@@ -1,6 +1,6 @@
 # Phase C - Generalize World Ranking Simulator
 
-Status: Planned
+Status: In Progress
 
 ## Goal
 
@@ -36,3 +36,10 @@ Supporting updates: `src/engine.py`, tests
 
 - Simulator no longer hard-depends on FIFA ranking schema.
 - Strength source can be swapped via factory/provider wiring.
+
+## Delivered (Current Slice)
+
+1. Added a `StrengthProvider` abstraction and default `FifaRankingStrengthProvider`.
+2. Updated `WorldRankingTournamentSimulator` to accept an injected strength provider while keeping FIFA-backed defaults.
+3. Wired `WorldRankingSimulatorFactory` to build and pass the default FIFA strength provider.
+4. Added deterministic regression coverage for custom provider injection.

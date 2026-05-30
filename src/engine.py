@@ -11,12 +11,20 @@ try:
     from src.models import MatchupCandidate, PredictionResponse
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from src.tournament import MatchResultState, TournamentStructureResolver
-    from src.world_ranking import WorldRankingTournamentSimulator
+    from src.world_ranking import (
+        FifaRankingStrengthProvider,
+        StrengthProvider,
+        WorldRankingTournamentSimulator,
+    )
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from tournament import MatchResultState, TournamentStructureResolver
-    from world_ranking import WorldRankingTournamentSimulator
+    from world_ranking import (
+        FifaRankingStrengthProvider,
+        StrengthProvider,
+        WorldRankingTournamentSimulator,
+    )
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
@@ -77,15 +85,24 @@ class StaticJsonMatchDataProvider:
 
 
 class WorldRankingSimulatorFactory:
+    def create_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
+        return FifaRankingStrengthProvider(
+            fifa_ranking_data=fifa_ranking_data,
+            default_rank_for_unlisted_team=120,
+            default_points_fallback=1400.0,
+        )
+
     def create(
         self,
         world_cup_data: dict,
         fifa_ranking_data: dict,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> WorldRankingTournamentSimulator:
+        strength_provider = self.create_strength_provider(fifa_ranking_data)
         return WorldRankingTournamentSimulator(
             world_cup_data=world_cup_data,
             fifa_ranking_data=fifa_ranking_data,
+            strength_provider=strength_provider,
             match_results=match_results,
         )
 
