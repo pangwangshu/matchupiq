@@ -43,6 +43,15 @@ Integration points:
 2. Mapping and normalization correctness for sample odds payload.
 3. Stable candidate output with deterministic mocked market feed.
 
+## Fallback Policy Contract
+
+1. `HybridPairwiseWinModel` should treat market data as usable only when all gates pass:
+   - freshness within TTL
+   - minimum liquidity met
+   - maximum spread not exceeded
+2. If any gate fails or market mapping is missing, fallback must deterministically delegate to `RatingPairwiseWinModel`.
+3. Fallback should happen at per-match granularity, so mixed coverage across fixtures remains valid.
+
 ## Exit Criteria
 
 - Predictor can run using market-driven probabilities with safe fallback behavior.

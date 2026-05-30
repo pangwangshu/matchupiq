@@ -1,6 +1,6 @@
 # Phase C - Generalize World Ranking Simulator
 
-Status: In Progress
+Status: Completed
 
 ## Goal
 
@@ -51,3 +51,8 @@ Supporting updates: `src/engine.py`, tests
 3. Updated `WorldRankingTournamentSimulator` to depend on `team_power_model` and `pairwise_win_model`.
 4. Updated `TournamentSimulatorFactory` wiring to build team-power and pairwise models separately.
 5. Added deterministic regression coverage for simulator construction without FIFA payload semantics (custom team-power + custom pairwise model injection).
+6. Added `MatchContext` plumbing to pairwise model calls (match number/stage/date/group) to support fixture-aware probability sources.
+7. Added strict pairwise probability contracts:
+   - group outcomes must be finite, non-negative, and normalized
+   - knockout probability must be finite and is clamped to `[0, 1]` as a simulator safety guard
+8. Updated predictor reason text to model-neutral wording and expanded regression checks for context propagation and probability-contract enforcement.

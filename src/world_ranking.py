@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from math import exp
+from math import exp, isfinite
 from pathlib import Path
 from typing import Any, Iterable, Protocol
 
@@ -81,6 +81,14 @@ class TeamPowerModel(Protocol):
 
 
 class PairwiseWinModel(Protocol):
+    """Contract for match-level win probability models.
+
+    Implementations may be rating-based, market-based, or hybrid.
+    For market-backed implementations, unavailable/stale/unreliable market data
+    should be handled via deterministic fallback (typically delegating to a
+    rating-based model) rather than ad-hoc random behavior.
+    """
+
     def group_outcomes(
         self,
         home_team: str,
@@ -91,6 +99,11 @@ class PairwiseWinModel(Protocol):
         model_config: WorldRankingModelConfig,
         decisive_band: float,
     ) -> list["MatchOutcome"]:
+        # Contract:
+        # - probabilities must be finite and non-negative
+        # - probabilities must sum to 1.0 (within floating-point tolerance)
+        # - if market data is unavailable/stale/unreliable, use deterministic
+        #   fallback logic (e.g. delegate to rating-based model)
         ...
 
     def knockout_home_win_probability(
@@ -103,6 +116,11 @@ class PairwiseWinModel(Protocol):
         model_config: WorldRankingModelConfig,
         draw_band: float,
     ) -> float:
+        # Contract:
+        # - return finite probability in [0.0, 1.0]
+        # - if market data is unavailable/stale/unreliable, use deterministic
+        #   fallback logic (e.g. delegate to rating-based model)
+        # - simulator will clamp boundary values as a final safety guard
         ...
 
 
@@ -389,6 +407,41 @@ class WorldRankingTournamentSimulator:
             group=str(group) if group is not None else None,
         )
 
+    def _validate_group_outcomes(
+        self,
+        outcomes: list[MatchOutcome],
+        match_context: MatchContext,
+    ) -> list[MatchOutcome]:
+        if not outcomes:
+            raise ValueError(f"PairwiseWinModel returned no group outcomes for match {match_context.match_number}.")
+
+        total = 0.0
+        for outcome in outcomes:
+            if not isfinite(outcome.probability):
+                raise ValueError(
+                    f"PairwiseWinModel returned non-finite group probability for match {match_context.match_number}."
+                )
+            if outcome.probability < 0.0:
+                raise ValueError(
+                    f"PairwiseWinModel returned negative group probability for match {match_context.match_number}."
+                )
+            total += outcome.probability
+
+        # Tight tolerance keeps contracts explicit and deterministic for providers.
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                f"PairwiseWinModel group probabilities must sum to 1.0; got {total:.10f} "
+                f"for match {match_context.match_number}."
+            )
+        return outcomes
+
+    def _clamp_knockout_probability(self, probability: float, match_context: MatchContext) -> float:
+        if not isfinite(probability):
+            raise ValueError(
+                f"PairwiseWinModel returned non-finite knockout probability for match {match_context.match_number}."
+            )
+        return max(0.0, min(1.0, probability))
+
     def _group_outcomes(
         self,
         home_team: str,
@@ -396,14 +449,16 @@ class WorldRankingTournamentSimulator:
         match_number: int | None,
         group: str | None = None,
     ) -> list[MatchOutcome]:
-        return self.pairwise_win_model.group_outcomes(
+        match_context = self._match_context(match_number=match_number, fallback_group=group)
+        outcomes = self.pairwise_win_model.group_outcomes(
             home_team,
             away_team,
-            match_context=self._match_context(match_number=match_number, fallback_group=group),
+            match_context=match_context,
             team_power_model=self.team_power_model,
             model_config=self.model_config,
             decisive_band=self.decisive_band,
         )
+        return self._validate_group_outcomes(outcomes, match_context=match_context)
 
     def _knockout_home_win_probability(
         self,
@@ -411,14 +466,16 @@ class WorldRankingTournamentSimulator:
         away_team: str,
         match_number: int | None,
     ) -> float:
-        return self.pairwise_win_model.knockout_home_win_probability(
+        match_context = self._match_context(match_number=match_number)
+        raw = self.pairwise_win_model.knockout_home_win_probability(
             home_team,
             away_team,
-            match_context=self._match_context(match_number=match_number),
+            match_context=match_context,
             team_power_model=self.team_power_model,
             model_config=self.model_config,
             draw_band=self.draw_band,
         )
+        return self._clamp_knockout_probability(raw, match_context=match_context)
 
     def _standing_sort_key(self, standing: TeamStanding) -> tuple:
         team_rank = self._team_profile(standing.team)

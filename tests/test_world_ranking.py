@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from src.engine import MatchupPredictor
 from src.tournament import MatchResultState
 from src.world_ranking import MatchContext, MatchOutcome, FifaTeamPowerModel, WorldRankingTournamentSimulator
@@ -183,4 +185,105 @@ def test_simulator_construction_without_fifa_payload_is_supported_and_determinis
     assert pairwise_win_model.knockout_calls > 0
     assert any(ctx.match_number is not None for ctx in pairwise_win_model.seen_group_contexts)
     assert any(ctx.stage == "group_stage" for ctx in pairwise_win_model.seen_group_contexts)
+    assert any(ctx.date is not None for ctx in pairwise_win_model.seen_group_contexts)
     assert any(ctx.match_number is not None for ctx in pairwise_win_model.seen_knockout_contexts)
+    assert any(ctx.date is not None for ctx in pairwise_win_model.seen_knockout_contexts)
+
+
+def test_group_outcome_probability_contract_rejects_non_normalized_distribution() -> None:
+    class FixedTeamPowerModel:
+        def team_rating(self, team: str) -> float:
+            return 1500.0
+
+        def team_rank(self, team: str) -> int:
+            return 100
+
+    class InvalidGroupPairwiseWinModel:
+        def group_outcomes(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            decisive_band: float,
+        ):
+            _ = (home_team, away_team, match_context, team_power_model, model_config, decisive_band)
+            return [
+                MatchOutcome(home_goals=2, away_goals=1, probability=0.5),
+                MatchOutcome(home_goals=1, away_goals=1, probability=0.5),
+                MatchOutcome(home_goals=1, away_goals=2, probability=0.2),
+            ]
+
+        def knockout_home_win_probability(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            draw_band: float,
+        ) -> float:
+            _ = (home_team, away_team, match_context, team_power_model, model_config, draw_band)
+            return 0.5
+
+    predictor = MatchupPredictor()
+    simulator = WorldRankingTournamentSimulator(
+        world_cup_data=predictor._load_world_cup_data(),
+        team_power_model=FixedTeamPowerModel(),
+        pairwise_win_model=InvalidGroupPairwiseWinModel(),
+    )
+
+    with pytest.raises(ValueError, match="must sum to 1.0"):
+        simulator.predict_matchup_candidates(match_number=82, limit=10)
+
+
+def test_knockout_probability_contract_clamps_to_closed_interval() -> None:
+    class FixedTeamPowerModel:
+        def team_rating(self, team: str) -> float:
+            return 1500.0
+
+        def team_rank(self, team: str) -> int:
+            return 100
+
+    class OverconfidentPairwiseWinModel:
+        def group_outcomes(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            decisive_band: float,
+        ):
+            _ = (home_team, away_team, match_context, team_power_model, model_config, decisive_band)
+            return [
+                MatchOutcome(home_goals=2, away_goals=1, probability=0.4),
+                MatchOutcome(home_goals=1, away_goals=1, probability=0.2),
+                MatchOutcome(home_goals=1, away_goals=2, probability=0.4),
+            ]
+
+        def knockout_home_win_probability(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            draw_band: float,
+        ) -> float:
+            _ = (home_team, away_team, match_context, team_power_model, model_config, draw_band)
+            return 1.4
+
+    predictor = MatchupPredictor()
+    simulator = WorldRankingTournamentSimulator(
+        world_cup_data=predictor._load_world_cup_data(),
+        team_power_model=FixedTeamPowerModel(),
+        pairwise_win_model=OverconfidentPairwiseWinModel(),
+    )
+
+    assert simulator._knockout_home_win_probability("A", "B", match_number=104) == 1.0
