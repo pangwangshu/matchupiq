@@ -4,7 +4,9 @@ Status: In Progress
 
 ## Goal
 
-Refactor `src/world_ranking.py` from FIFA-specific implementation into a reusable scenario engine that can consume different strength sources.
+Refactor `src/world_ranking.py` from FIFA-specific implementation into a reusable scenario engine with:
+- static team power model (e.g. FIFA snapshot)
+- dynamic pairwise win model (e.g. prediction-market odds + fallback)
 
 ## Scope
 
@@ -13,10 +15,10 @@ Supporting updates: `src/engine.py`, tests
 
 ## Tasks
 
-1. Introduce a strength abstraction:
-   - team rating lookup
-   - pairwise win probability calculation
-2. Replace direct FIFA ranking calls in simulator internals with abstraction calls.
+1. Introduce a split abstraction:
+   - `TeamPowerModel` for static team strength
+   - `PairwiseWinModel` for dynamic match-level win probabilities
+2. Replace direct FIFA ranking calls and embedded pairwise math with abstraction calls.
 3. Keep beam-search world scenario logic unchanged where possible.
 4. Ensure live-result constraints can be applied:
    - fixed outcomes for completed matches
@@ -27,7 +29,7 @@ Supporting updates: `src/engine.py`, tests
 
 ## Tests
 
-1. Deterministic outputs for fixed input strength provider.
+1. Deterministic outputs for fixed `TeamPowerModel` + fixed `PairwiseWinModel`.
 2. Rule-space validity for predicted pairs.
 3. Probability normalization remains within expected range.
 4. Existing tests migrate with minimal fixture changes.
@@ -35,12 +37,17 @@ Supporting updates: `src/engine.py`, tests
 ## Exit Criteria
 
 - Simulator no longer hard-depends on FIFA ranking schema.
-- Strength source can be swapped via factory/provider wiring.
+- Team power source can be swapped independently from pairwise win source.
+- Pairwise win model can be backed by market odds with deterministic fallback.
 
 ## Delivered (Current Slice)
 
-1. Added a `StrengthProvider` abstraction and default `FifaRankingStrengthProvider`.
-2. Updated `WorldRankingTournamentSimulator` to be provider-first and construct without any FIFA payload parameter.
-3. Updated `TournamentSimulatorFactory.create(...)` wiring to pass a `StrengthProvider` instead of FIFA payload semantics.
-4. Kept default FIFA behavior behind factory/provider creation.
-5. Added deterministic regression coverage for provider-only simulator construction.
+1. Added split abstractions:
+   - `TeamPowerModel`
+   - `PairwiseWinModel`
+2. Added defaults:
+   - `FifaTeamPowerModel` for static team strength
+   - `RatingPairwiseWinModel` for rating-derived pairwise probabilities
+3. Updated `WorldRankingTournamentSimulator` to depend on `team_power_model` and `pairwise_win_model`.
+4. Updated `TournamentSimulatorFactory` wiring to build team-power and pairwise models separately.
+5. Added deterministic regression coverage for simulator construction without FIFA payload semantics (custom team-power + custom pairwise model injection).

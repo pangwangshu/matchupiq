@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from src.engine import MatchupPredictor
 from src.tournament import MatchResultState
-from src.world_ranking import FifaRankingStrengthProvider, WorldRankingTournamentSimulator
+from src.world_ranking import MatchContext, MatchOutcome, FifaTeamPowerModel, WorldRankingTournamentSimulator
 
 
 def _simulator() -> WorldRankingTournamentSimulator:
     predictor = MatchupPredictor()
-    strength_provider = FifaRankingStrengthProvider(
+    team_power_model = FifaTeamPowerModel(
         fifa_ranking_data=predictor._load_fifa_ranking_data(),
         default_rank_for_unlisted_team=120,
         default_points_fallback=1400.0,
     )
     return WorldRankingTournamentSimulator(
         world_cup_data=predictor._load_world_cup_data(),
-        strength_provider=strength_provider,
+        team_power_model=team_power_model,
     )
 
 
@@ -82,7 +82,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     predictor = MatchupPredictor()
     world_cup_data = predictor._load_world_cup_data()
     fifa_ranking_data = predictor._load_fifa_ranking_data()
-    strength_provider = FifaRankingStrengthProvider(
+    team_power_model = FifaTeamPowerModel(
         fifa_ranking_data=fifa_ranking_data,
         default_rank_for_unlisted_team=120,
         default_points_fallback=1400.0,
@@ -90,7 +90,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
 
     baseline_simulator = WorldRankingTournamentSimulator(
         world_cup_data=world_cup_data,
-        strength_provider=strength_provider,
+        team_power_model=team_power_model,
     )
     baseline = baseline_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert baseline
@@ -98,7 +98,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
 
     constrained_simulator = WorldRankingTournamentSimulator(
         world_cup_data=world_cup_data,
-        strength_provider=strength_provider,
+        team_power_model=team_power_model,
         match_results={
             74: MatchResultState(
                 played=True,
@@ -115,34 +115,72 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
 
 
 def test_simulator_construction_without_fifa_payload_is_supported_and_deterministic() -> None:
-    class FixedStrengthProvider:
-        def __init__(self) -> None:
-            self.win_probability_calls = 0
-
+    class FixedTeamPowerModel:
         def team_rating(self, team: str) -> float:
             return 1500.0
 
         def team_rank(self, team: str) -> int:
             return 100
 
-        def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
-            return self.team_rating(team_a) - self.team_rating(team_b)
+    class FixedPairwiseWinModel:
+        def __init__(self) -> None:
+            self.group_calls = 0
+            self.knockout_calls = 0
+            self.seen_group_contexts: list[MatchContext] = []
+            self.seen_knockout_contexts: list[MatchContext] = []
 
-        def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
-            self.win_probability_calls += 1
-            _ = sigmoid_divisor
+        def group_outcomes(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            decisive_band: float,
+        ):
+            self.group_calls += 1
+            self.seen_group_contexts.append(match_context)
+            _ = (home_team, away_team, team_power_model, model_config, decisive_band)
+            return [
+                MatchOutcome(home_goals=2, away_goals=1, probability=0.35),
+                MatchOutcome(home_goals=1, away_goals=1, probability=0.30),
+                MatchOutcome(home_goals=1, away_goals=2, probability=0.35),
+            ]
+
+        def knockout_home_win_probability(
+            self,
+            home_team: str,
+            away_team: str,
+            match_context: MatchContext,
+            *,
+            team_power_model,
+            model_config,
+            draw_band: float,
+        ) -> float:
+            self.knockout_calls += 1
+            self.seen_knockout_contexts.append(match_context)
+            _ = (home_team, away_team, team_power_model, model_config, draw_band)
             return 0.5
 
     predictor = MatchupPredictor()
-    provider = FixedStrengthProvider()
+    team_power_model = FixedTeamPowerModel()
+    pairwise_win_model = FixedPairwiseWinModel()
     simulator = WorldRankingTournamentSimulator(
         world_cup_data=predictor._load_world_cup_data(),
-        strength_provider=provider,
+        team_power_model=team_power_model,
+        pairwise_win_model=pairwise_win_model,
     )
 
     first = simulator.predict_matchup_candidates(match_number=82, limit=10)
     second = simulator.predict_matchup_candidates(match_number=82, limit=10)
+    final_candidates = simulator.predict_matchup_candidates(match_number=104, limit=10)
 
     assert first
     assert first == second
-    assert provider.win_probability_calls > 0
+    assert final_candidates
+    assert pairwise_win_model.group_calls > 0
+    assert pairwise_win_model.knockout_calls > 0
+    assert any(ctx.match_number is not None for ctx in pairwise_win_model.seen_group_contexts)
+    assert any(ctx.stage == "group_stage" for ctx in pairwise_win_model.seen_group_contexts)
+    assert any(ctx.match_number is not None for ctx in pairwise_win_model.seen_knockout_contexts)

@@ -36,7 +36,7 @@ def test_predict_group_stage_match_has_multiple_candidates() -> None:
 
     assert result.status == "predicted"
     assert 1 <= len(result.top_candidates) <= 10
-    assert "FIFA world-ranking scenario search" in result.top_candidates[0].reason
+    assert "scenario-search simulation" in result.top_candidates[0].reason
 
     # Group-stage match is fixed by schedule, so top pair should be the scheduled one.
     top = result.top_candidates[0]
@@ -58,7 +58,7 @@ def test_predict_knockout_candidates_respect_rule_space(match_id: str) -> None:
         assert (candidate.home_team, candidate.away_team) in valid_pairs
         assert candidate.home_team != candidate.away_team
         assert candidate.score > 0
-        assert "FIFA world-ranking scenario search" in candidate.reason
+        assert "scenario-search simulation" in candidate.reason
 
 
 def test_predict_knockout_candidates_are_probability_like() -> None:

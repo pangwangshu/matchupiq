@@ -12,8 +12,10 @@ try:
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from src.tournament import MatchResultState, TournamentStructureResolver
     from src.world_ranking import (
-        FifaRankingStrengthProvider,
-        StrengthProvider,
+        FifaTeamPowerModel,
+        PairwiseWinModel,
+        RatingPairwiseWinModel,
+        TeamPowerModel,
         WorldRankingTournamentSimulator,
     )
 except ModuleNotFoundError:
@@ -21,8 +23,10 @@ except ModuleNotFoundError:
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
     from tournament import MatchResultState, TournamentStructureResolver
     from world_ranking import (
-        FifaRankingStrengthProvider,
-        StrengthProvider,
+        FifaTeamPowerModel,
+        PairwiseWinModel,
+        RatingPairwiseWinModel,
+        TeamPowerModel,
         WorldRankingTournamentSimulator,
     )
 
@@ -51,13 +55,17 @@ class TournamentSimulator(Protocol):
 
 
 class TournamentSimulatorFactory(Protocol):
-    def create_default_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
+    def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
+        ...
+
+    def create_default_pairwise_win_model(self) -> PairwiseWinModel:
         ...
 
     def create(
         self,
         world_cup_data: dict,
-        strength_provider: StrengthProvider,
+        team_power_model: TeamPowerModel,
+        pairwise_win_model: PairwiseWinModel,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> TournamentSimulator:
         ...
@@ -88,22 +96,27 @@ class StaticJsonMatchDataProvider:
 
 
 class WorldRankingSimulatorFactory:
-    def create_default_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
-        return FifaRankingStrengthProvider(
+    def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
+        return FifaTeamPowerModel(
             fifa_ranking_data=fifa_ranking_data,
             default_rank_for_unlisted_team=120,
             default_points_fallback=1400.0,
         )
 
+    def create_default_pairwise_win_model(self) -> PairwiseWinModel:
+        return RatingPairwiseWinModel()
+
     def create(
         self,
         world_cup_data: dict,
-        strength_provider: StrengthProvider,
+        team_power_model: TeamPowerModel,
+        pairwise_win_model: PairwiseWinModel,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> WorldRankingTournamentSimulator:
         return WorldRankingTournamentSimulator(
             world_cup_data=world_cup_data,
-            strength_provider=strength_provider,
+            team_power_model=team_power_model,
+            pairwise_win_model=pairwise_win_model,
             match_results=match_results,
         )
 
@@ -298,10 +311,12 @@ class MatchupPredictor:
 
         world_cup_data = self._load_world_cup_data()
         fifa_ranking_data = self._load_fifa_ranking_data()
-        strength_provider = self.simulator_factory.create_default_strength_provider(fifa_ranking_data)
+        team_power_model = self.simulator_factory.create_default_team_power_model(fifa_ranking_data)
+        pairwise_win_model = self.simulator_factory.create_default_pairwise_win_model()
         simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
-            strength_provider=strength_provider,
+            team_power_model=team_power_model,
+            pairwise_win_model=pairwise_win_model,
             match_results=self._load_match_results_state(),
         )
         predicted = simulator.predict_matchup_candidates(
@@ -319,7 +334,7 @@ class MatchupPredictor:
                     away_team=away_team,
                     score=round(probability, 4),
                     reason=(
-                        "Predicted via FIFA world-ranking scenario search "
+                        "Predicted via scenario-search simulation "
                         "(group standings + knockout outcome branching)."
                     ),
                 )

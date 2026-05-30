@@ -64,21 +64,49 @@ class TeamStrengthProfile:
     seed_rank: int
 
 
-class StrengthProvider(Protocol):
+@dataclass(frozen=True)
+class MatchContext:
+    match_number: int | None
+    stage: str | None
+    date: str | None
+    group: str | None
+
+
+class TeamPowerModel(Protocol):
     def team_rating(self, team: str) -> float:
         ...
 
     def team_rank(self, team: str) -> int:
         ...
 
-    def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
+
+class PairwiseWinModel(Protocol):
+    def group_outcomes(
+        self,
+        home_team: str,
+        away_team: str,
+        match_context: MatchContext,
+        *,
+        team_power_model: TeamPowerModel,
+        model_config: WorldRankingModelConfig,
+        decisive_band: float,
+    ) -> list["MatchOutcome"]:
         ...
 
-    def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
+    def knockout_home_win_probability(
+        self,
+        home_team: str,
+        away_team: str,
+        match_context: MatchContext,
+        *,
+        team_power_model: TeamPowerModel,
+        model_config: WorldRankingModelConfig,
+        draw_band: float,
+    ) -> float:
         ...
 
 
-class FifaRankingStrengthProvider:
+class FifaTeamPowerModel:
     def __init__(
         self,
         fifa_ranking_data: dict,
@@ -114,6 +142,14 @@ class FifaRankingStrengthProvider:
             TeamStrengthProfile(team=team, rating=self.default_points, seed_rank=self.default_rank),
         )
 
+    def team_rating(self, team: str) -> float:
+        return self._team_profile(team).rating
+
+    def team_rank(self, team: str) -> int:
+        return self._team_profile(team).seed_rank
+
+
+class RatingPairwiseWinModel:
     @staticmethod
     def _sigmoid(value: float) -> float:
         if value >= 0:
@@ -122,18 +158,90 @@ class FifaRankingStrengthProvider:
         z = exp(value)
         return z / (1.0 + z)
 
-    def team_rating(self, team: str) -> float:
-        return self._team_profile(team).rating
+    def _pairwise_strength_diff(
+        self,
+        team_a: str,
+        team_b: str,
+        team_power_model: TeamPowerModel,
+    ) -> float:
+        return team_power_model.team_rating(team_a) - team_power_model.team_rating(team_b)
 
-    def team_rank(self, team: str) -> int:
-        return self._team_profile(team).seed_rank
-
-    def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
-        return self.team_rating(team_a) - self.team_rating(team_b)
-
-    def pairwise_win_probability(self, team_a: str, team_b: str, sigmoid_divisor: float) -> float:
-        diff = self.pairwise_strength_diff(team_a, team_b)
+    def _pairwise_win_probability(
+        self,
+        team_a: str,
+        team_b: str,
+        *,
+        team_power_model: TeamPowerModel,
+        sigmoid_divisor: float,
+    ) -> float:
+        diff = self._pairwise_strength_diff(team_a, team_b, team_power_model)
         return self._sigmoid(diff / sigmoid_divisor)
+
+    def group_outcomes(
+        self,
+        home_team: str,
+        away_team: str,
+        match_context: MatchContext,
+        *,
+        team_power_model: TeamPowerModel,
+        model_config: WorldRankingModelConfig,
+        decisive_band: float,
+    ) -> list["MatchOutcome"]:
+        _ = match_context
+        diff = self._pairwise_strength_diff(home_team, away_team, team_power_model)
+        abs_diff = abs(diff)
+
+        draw_probability = max(
+            model_config.group_draw_probability_min,
+            min(
+                model_config.group_draw_probability_max,
+                model_config.group_draw_probability_base
+                - (abs_diff / model_config.group_draw_diff_divisor),
+            ),
+        )
+        home_given_no_draw = self._pairwise_win_probability(
+            home_team,
+            away_team,
+            team_power_model=team_power_model,
+            sigmoid_divisor=model_config.group_win_sigmoid_divisor,
+        )
+        home_win_probability = (1.0 - draw_probability) * home_given_no_draw
+        away_win_probability = max(0.0, 1.0 - draw_probability - home_win_probability)
+
+        margin = 2 if abs_diff >= decisive_band else 1
+        return [
+            MatchOutcome(home_goals=1 + margin, away_goals=1, probability=home_win_probability),
+            MatchOutcome(home_goals=1, away_goals=1, probability=draw_probability),
+            MatchOutcome(home_goals=1, away_goals=1 + margin, probability=away_win_probability),
+        ]
+
+    def knockout_home_win_probability(
+        self,
+        home_team: str,
+        away_team: str,
+        match_context: MatchContext,
+        *,
+        team_power_model: TeamPowerModel,
+        model_config: WorldRankingModelConfig,
+        draw_band: float,
+    ) -> float:
+        _ = match_context
+        diff = self._pairwise_strength_diff(home_team, away_team, team_power_model)
+        base = self._pairwise_win_probability(
+            home_team,
+            away_team,
+            team_power_model=team_power_model,
+            sigmoid_divisor=model_config.knockout_win_sigmoid_divisor,
+        )
+        if abs(diff) <= draw_band:
+            rank_home = team_power_model.team_rank(home_team)
+            rank_away = team_power_model.team_rank(away_team)
+            rank_bias = (rank_away - rank_home) / model_config.knockout_rank_bias_divisor
+            base = 0.5 + rank_bias
+        return max(
+            model_config.knockout_win_probability_min,
+            min(model_config.knockout_win_probability_max, base),
+        )
 
 
 @dataclass
@@ -177,7 +285,8 @@ class WorldRankingTournamentSimulator:
     def __init__(
         self,
         world_cup_data: dict,
-        strength_provider: StrengthProvider,
+        team_power_model: TeamPowerModel,
+        pairwise_win_model: PairwiseWinModel | None = None,
         match_results: dict[int, MatchResultState] | None = None,
         draw_band: float | None = None,
         decisive_band: float | None = None,
@@ -196,7 +305,8 @@ class WorldRankingTournamentSimulator:
             groups=world_cup_data.get("groups", []),
             schedule=world_cup_data.get("schedule", []),
         )
-        self.strength_provider = strength_provider
+        self.team_power_model = team_power_model
+        self.pairwise_win_model = pairwise_win_model or RatingPairwiseWinModel()
         self.match_results = match_results or {}
         self.group_matches = self._build_group_matches()
         self.match_by_number = {
@@ -256,55 +366,58 @@ class WorldRankingTournamentSimulator:
     def _team_profile(self, team: str) -> TeamStrengthProfile:
         return TeamStrengthProfile(
             team=team,
-            rating=self.strength_provider.team_rating(team),
-            seed_rank=self.strength_provider.team_rank(team),
+            rating=self.team_power_model.team_rating(team),
+            seed_rank=self.team_power_model.team_rank(team),
         )
 
-    def _pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
-        return self.strength_provider.pairwise_strength_diff(team_a, team_b)
-
-    def _group_outcomes(self, home_team: str, away_team: str) -> list[MatchOutcome]:
-        diff = self._pairwise_strength_diff(home_team, away_team)
-        abs_diff = abs(diff)
-
-        draw_probability = max(
-            self.model_config.group_draw_probability_min,
-            min(
-                self.model_config.group_draw_probability_max,
-                self.model_config.group_draw_probability_base
-                - (abs_diff / self.model_config.group_draw_diff_divisor),
-            ),
+    def _match_context(self, match_number: int | None, fallback_group: str | None = None) -> MatchContext:
+        if match_number is None:
+            return MatchContext(
+                match_number=None,
+                stage=None,
+                date=None,
+                group=fallback_group,
+            )
+        match = self.match_by_number.get(match_number, {})
+        stage = match.get("stage")
+        date = match.get("date")
+        group = match.get("group") or fallback_group
+        return MatchContext(
+            match_number=match_number,
+            stage=str(stage) if stage is not None else None,
+            date=str(date) if date is not None else None,
+            group=str(group) if group is not None else None,
         )
-        home_given_no_draw = self.strength_provider.pairwise_win_probability(
+
+    def _group_outcomes(
+        self,
+        home_team: str,
+        away_team: str,
+        match_number: int | None,
+        group: str | None = None,
+    ) -> list[MatchOutcome]:
+        return self.pairwise_win_model.group_outcomes(
             home_team,
             away_team,
-            sigmoid_divisor=self.model_config.group_win_sigmoid_divisor,
+            match_context=self._match_context(match_number=match_number, fallback_group=group),
+            team_power_model=self.team_power_model,
+            model_config=self.model_config,
+            decisive_band=self.decisive_band,
         )
-        home_win_probability = (1.0 - draw_probability) * home_given_no_draw
-        away_win_probability = max(0.0, 1.0 - draw_probability - home_win_probability)
 
-        margin = 2 if abs_diff >= self.decisive_band else 1
-        return [
-            MatchOutcome(home_goals=1 + margin, away_goals=1, probability=home_win_probability),
-            MatchOutcome(home_goals=1, away_goals=1, probability=draw_probability),
-            MatchOutcome(home_goals=1, away_goals=1 + margin, probability=away_win_probability),
-        ]
-
-    def _knockout_home_win_probability(self, home_team: str, away_team: str) -> float:
-        diff = self.strength_provider.pairwise_strength_diff(home_team, away_team)
-        base = self.strength_provider.pairwise_win_probability(
+    def _knockout_home_win_probability(
+        self,
+        home_team: str,
+        away_team: str,
+        match_number: int | None,
+    ) -> float:
+        return self.pairwise_win_model.knockout_home_win_probability(
             home_team,
             away_team,
-            sigmoid_divisor=self.model_config.knockout_win_sigmoid_divisor,
-        )
-        if abs(diff) <= self.draw_band:
-            rank_home = self.strength_provider.team_rank(home_team)
-            rank_away = self.strength_provider.team_rank(away_team)
-            rank_bias = (rank_away - rank_home) / self.model_config.knockout_rank_bias_divisor
-            base = 0.5 + rank_bias
-        return max(
-            self.model_config.knockout_win_probability_min,
-            min(self.model_config.knockout_win_probability_max, base),
+            match_context=self._match_context(match_number=match_number),
+            team_power_model=self.team_power_model,
+            model_config=self.model_config,
+            draw_band=self.draw_band,
         )
 
     def _standing_sort_key(self, standing: TeamStanding) -> tuple:
@@ -409,7 +522,12 @@ class WorldRankingTournamentSimulator:
                 else:
                     outcomes = [
                         (home_team, away_team, outcome)
-                        for outcome in self._group_outcomes(home_team, away_team)
+                        for outcome in self._group_outcomes(
+                            home_team,
+                            away_team,
+                            match_number=match_number,
+                            group=group,
+                        )
                     ]
 
                 for outcome_home, outcome_away, outcome in outcomes:
@@ -680,7 +798,11 @@ class WorldRankingTournamentSimulator:
                 if home_team == away_team:
                     continue
                 matchup_probability = home_probability * away_probability
-                home_win_probability = self._knockout_home_win_probability(home_team, away_team)
+                home_win_probability = self._knockout_home_win_probability(
+                    home_team,
+                    away_team,
+                    match_number=match_number,
+                )
                 winners[home_team] = winners.get(home_team, 0.0) + matchup_probability * home_win_probability
                 winners[away_team] = winners.get(away_team, 0.0) + matchup_probability * (1.0 - home_win_probability)
 
@@ -741,7 +863,11 @@ class WorldRankingTournamentSimulator:
                 if home_team == away_team:
                     continue
                 matchup_probability = home_probability * away_probability
-                home_win_probability = self._knockout_home_win_probability(home_team, away_team)
+                home_win_probability = self._knockout_home_win_probability(
+                    home_team,
+                    away_team,
+                    match_number=match_number,
+                )
                 losers[away_team] = losers.get(away_team, 0.0) + matchup_probability * home_win_probability
                 losers[home_team] = losers.get(home_team, 0.0) + matchup_probability * (1.0 - home_win_probability)
 
