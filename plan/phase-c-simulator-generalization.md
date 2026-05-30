@@ -40,6 +40,7 @@ Supporting updates: `src/engine.py`, tests
 ## Delivered (Current Slice)
 
 1. Added a `StrengthProvider` abstraction and default `FifaRankingStrengthProvider`.
-2. Updated `WorldRankingTournamentSimulator` to accept an injected strength provider while keeping FIFA-backed defaults.
-3. Wired `WorldRankingSimulatorFactory` to build and pass the default FIFA strength provider.
-4. Added deterministic regression coverage for custom provider injection.
+2. Updated `WorldRankingTournamentSimulator` to be provider-first and construct without any FIFA payload parameter.
+3. Updated `TournamentSimulatorFactory.create(...)` wiring to pass a `StrengthProvider` instead of FIFA payload semantics.
+4. Kept default FIFA behavior behind factory/provider creation.
+5. Added deterministic regression coverage for provider-only simulator construction.

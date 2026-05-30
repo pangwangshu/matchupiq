@@ -58,10 +58,10 @@ class WorldRankingModelConfig:
 
 
 @dataclass(frozen=True)
-class TeamRanking:
+class TeamStrengthProfile:
     team: str
-    fifa_points: float
-    fifa_rank: int
+    rating: float
+    seed_rank: int
 
 
 class StrengthProvider(Protocol):
@@ -86,8 +86,8 @@ class FifaRankingStrengthProvider:
         default_rank_for_unlisted_team: int,
         default_points_fallback: float,
     ) -> None:
-        self.rankings_by_team = self._build_ranking_map(fifa_ranking_data)
-        all_points = sorted([entry.fifa_points for entry in self.rankings_by_team.values()])
+        self.profiles_by_team = self._build_strength_profile_map(fifa_ranking_data)
+        all_points = sorted([entry.rating for entry in self.profiles_by_team.values()])
         self.default_points = (
             all_points[len(all_points) // 2]
             if all_points
@@ -95,23 +95,23 @@ class FifaRankingStrengthProvider:
         )
         self.default_rank = default_rank_for_unlisted_team
 
-    def _build_ranking_map(self, fifa_ranking_data: dict) -> dict[str, TeamRanking]:
-        out: dict[str, TeamRanking] = {}
+    def _build_strength_profile_map(self, fifa_ranking_data: dict) -> dict[str, TeamStrengthProfile]:
+        out: dict[str, TeamStrengthProfile] = {}
         for row in fifa_ranking_data.get("participants_rankings", []):
             team = str(row.get("participant_name", "")).strip()
             if not team:
                 continue
-            out[team] = TeamRanking(
+            out[team] = TeamStrengthProfile(
                 team=team,
-                fifa_points=float(row.get("points", 0.0)),
-                fifa_rank=int(row.get("rank", 999)),
+                rating=float(row.get("points", 0.0)),
+                seed_rank=int(row.get("rank", 999)),
             )
         return out
 
-    def _team_ranking(self, team: str) -> TeamRanking:
-        return self.rankings_by_team.get(
+    def _team_profile(self, team: str) -> TeamStrengthProfile:
+        return self.profiles_by_team.get(
             team,
-            TeamRanking(team=team, fifa_points=self.default_points, fifa_rank=self.default_rank),
+            TeamStrengthProfile(team=team, rating=self.default_points, seed_rank=self.default_rank),
         )
 
     @staticmethod
@@ -123,10 +123,10 @@ class FifaRankingStrengthProvider:
         return z / (1.0 + z)
 
     def team_rating(self, team: str) -> float:
-        return self._team_ranking(team).fifa_points
+        return self._team_profile(team).rating
 
     def team_rank(self, team: str) -> int:
-        return self._team_ranking(team).fifa_rank
+        return self._team_profile(team).seed_rank
 
     def pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
         return self.team_rating(team_a) - self.team_rating(team_b)
@@ -177,8 +177,7 @@ class WorldRankingTournamentSimulator:
     def __init__(
         self,
         world_cup_data: dict,
-        fifa_ranking_data: dict | None = None,
-        strength_provider: StrengthProvider | None = None,
+        strength_provider: StrengthProvider,
         match_results: dict[int, MatchResultState] | None = None,
         draw_band: float | None = None,
         decisive_band: float | None = None,
@@ -197,16 +196,7 @@ class WorldRankingTournamentSimulator:
             groups=world_cup_data.get("groups", []),
             schedule=world_cup_data.get("schedule", []),
         )
-        if strength_provider is not None:
-            self.strength_provider = strength_provider
-        else:
-            if fifa_ranking_data is None:
-                raise ValueError("fifa_ranking_data is required when no strength_provider is supplied.")
-            self.strength_provider = FifaRankingStrengthProvider(
-                fifa_ranking_data=fifa_ranking_data,
-                default_rank_for_unlisted_team=self.model_config.default_rank_for_unlisted_team,
-                default_points_fallback=self.model_config.default_points_fallback,
-            )
+        self.strength_provider = strength_provider
         self.match_results = match_results or {}
         self.group_matches = self._build_group_matches()
         self.match_by_number = {
@@ -263,11 +253,11 @@ class WorldRankingTournamentSimulator:
             return None
         return result
 
-    def _team_ranking(self, team: str) -> TeamRanking:
-        return TeamRanking(
+    def _team_profile(self, team: str) -> TeamStrengthProfile:
+        return TeamStrengthProfile(
             team=team,
-            fifa_points=self.strength_provider.team_rating(team),
-            fifa_rank=self.strength_provider.team_rank(team),
+            rating=self.strength_provider.team_rating(team),
+            seed_rank=self.strength_provider.team_rank(team),
         )
 
     def _pairwise_strength_diff(self, team_a: str, team_b: str) -> float:
@@ -318,13 +308,13 @@ class WorldRankingTournamentSimulator:
         )
 
     def _standing_sort_key(self, standing: TeamStanding) -> tuple:
-        team_rank = self._team_ranking(standing.team)
+        team_rank = self._team_profile(standing.team)
         return (
             -standing.points,
             -standing.goal_difference,
             -standing.goals_for,
-            -team_rank.fifa_points,
-            team_rank.fifa_rank,
+            -team_rank.rating,
+            team_rank.seed_rank,
             standing.team,
         )
 
@@ -618,7 +608,7 @@ class WorldRankingTournamentSimulator:
             total = 0.0
             dist: dict[str, float] = {}
             for contender in contenders:
-                points = self._team_ranking(contender).fifa_points
+                points = self._team_profile(contender).rating
                 weight = max(points, self.model_config.slot_contender_min_weight)
                 total += weight
                 dist[contender] = weight

@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from src.engine import MatchupPredictor
 from src.tournament import MatchResultState
-from src.world_ranking import WorldRankingTournamentSimulator
+from src.world_ranking import FifaRankingStrengthProvider, WorldRankingTournamentSimulator
 
 
 def _simulator() -> WorldRankingTournamentSimulator:
     predictor = MatchupPredictor()
+    strength_provider = FifaRankingStrengthProvider(
+        fifa_ranking_data=predictor._load_fifa_ranking_data(),
+        default_rank_for_unlisted_team=120,
+        default_points_fallback=1400.0,
+    )
     return WorldRankingTournamentSimulator(
         world_cup_data=predictor._load_world_cup_data(),
-        fifa_ranking_data=predictor._load_fifa_ranking_data(),
+        strength_provider=strength_provider,
     )
 
 
@@ -77,10 +82,15 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     predictor = MatchupPredictor()
     world_cup_data = predictor._load_world_cup_data()
     fifa_ranking_data = predictor._load_fifa_ranking_data()
+    strength_provider = FifaRankingStrengthProvider(
+        fifa_ranking_data=fifa_ranking_data,
+        default_rank_for_unlisted_team=120,
+        default_points_fallback=1400.0,
+    )
 
     baseline_simulator = WorldRankingTournamentSimulator(
         world_cup_data=world_cup_data,
-        fifa_ranking_data=fifa_ranking_data,
+        strength_provider=strength_provider,
     )
     baseline = baseline_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert baseline
@@ -88,7 +98,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
 
     constrained_simulator = WorldRankingTournamentSimulator(
         world_cup_data=world_cup_data,
-        fifa_ranking_data=fifa_ranking_data,
+        strength_provider=strength_provider,
         match_results={
             74: MatchResultState(
                 played=True,
@@ -104,7 +114,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     assert {home for home, _away, _score in constrained} == {"Germany"}
 
 
-def test_custom_strength_provider_is_supported_and_deterministic() -> None:
+def test_simulator_construction_without_fifa_payload_is_supported_and_deterministic() -> None:
     class FixedStrengthProvider:
         def __init__(self) -> None:
             self.win_probability_calls = 0

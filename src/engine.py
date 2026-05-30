@@ -51,10 +51,13 @@ class TournamentSimulator(Protocol):
 
 
 class TournamentSimulatorFactory(Protocol):
+    def create_default_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
+        ...
+
     def create(
         self,
         world_cup_data: dict,
-        fifa_ranking_data: dict,
+        strength_provider: StrengthProvider,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> TournamentSimulator:
         ...
@@ -85,7 +88,7 @@ class StaticJsonMatchDataProvider:
 
 
 class WorldRankingSimulatorFactory:
-    def create_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
+    def create_default_strength_provider(self, fifa_ranking_data: dict) -> StrengthProvider:
         return FifaRankingStrengthProvider(
             fifa_ranking_data=fifa_ranking_data,
             default_rank_for_unlisted_team=120,
@@ -95,13 +98,11 @@ class WorldRankingSimulatorFactory:
     def create(
         self,
         world_cup_data: dict,
-        fifa_ranking_data: dict,
+        strength_provider: StrengthProvider,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> WorldRankingTournamentSimulator:
-        strength_provider = self.create_strength_provider(fifa_ranking_data)
         return WorldRankingTournamentSimulator(
             world_cup_data=world_cup_data,
-            fifa_ranking_data=fifa_ranking_data,
             strength_provider=strength_provider,
             match_results=match_results,
         )
@@ -297,9 +298,10 @@ class MatchupPredictor:
 
         world_cup_data = self._load_world_cup_data()
         fifa_ranking_data = self._load_fifa_ranking_data()
+        strength_provider = self.simulator_factory.create_default_strength_provider(fifa_ranking_data)
         simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
-            fifa_ranking_data=fifa_ranking_data,
+            strength_provider=strength_provider,
             match_results=self._load_match_results_state(),
         )
         predicted = simulator.predict_matchup_candidates(
