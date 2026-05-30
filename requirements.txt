@@ -4,3 +4,4 @@ pydantic==2.9.2
 streamlit==1.51.0
 pytest==9.0.3
 httpx==0.28.1
+cachetools==7.1.4

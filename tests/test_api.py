@@ -26,11 +26,11 @@ def test_predict_success() -> None:
 
 
 def test_predict_maps_value_error_to_404(monkeypatch) -> None:
-    class StubPredictor:
-        def predict(self, match_id: str):
+    class StubCacheService:
+        def get_prediction(self, match_id: str):
             raise ValueError(f"missing match id: {match_id}")
 
-    monkeypatch.setattr(api_module, "predictor", StubPredictor())
+    monkeypatch.setattr(api_module, "prediction_cache", StubCacheService())
     client = TestClient(api_module.app)
     response = client.post("/predict", json={"match_id": "999"})
 
