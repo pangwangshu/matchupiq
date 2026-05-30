@@ -22,7 +22,10 @@ STAGE_KEY = {
 
 # FIFA-style trigrams for non-ISO entities or naming differences.
 FIFA_CODE_OVERRIDES = {
-    "ENG": "ENG",
+    "GB-ENG": "ENG",
+    "GB-SCT": "SCO",
+    "GB-WLS": "WAL",
+    "GB-NIR": "NIR",
 }
 
 COUNTRY_NAME_OVERRIDES = {
@@ -35,9 +38,10 @@ COUNTRY_NAME_OVERRIDES = {
 
 
 def alpha2_to_alpha3(alpha2: str) -> str | None:
-    if alpha2.upper() == "GB-ENG":
-        return FIFA_CODE_OVERRIDES["ENG"]
-    match = pycountry.countries.get(alpha_2=alpha2.upper())
+    normalized = alpha2.upper()
+    if normalized in FIFA_CODE_OVERRIDES:
+        return FIFA_CODE_OVERRIDES[normalized]
+    match = pycountry.countries.get(alpha_2=normalized)
     return match.alpha_3 if match else None
 
 
@@ -127,7 +131,7 @@ def main() -> None:
                 alpha3 = None
 
                 if flag_url:
-                    m = re.search(r"/([a-z]{2}|gb-eng)\.png$", flag_url)
+                    m = re.search(r"/([a-z]{2}|gb-[a-z]{3})\.png$", flag_url)
                     if m:
                         alpha2 = m.group(1).upper()
                         alpha3 = alpha2_to_alpha3(alpha2)
@@ -140,8 +144,6 @@ def main() -> None:
                 local_flag = None
                 if alpha2:
                     safe_code = alpha2.lower()
-                    if safe_code == "gb-eng":
-                        safe_code = "gb-eng"
                     local_path = os.path.join(FLAGS_DIR, f"{safe_code}.png")
                     try:
                         r = requests.get(f"https://flagcdn.com/w80/{safe_code}.png", timeout=20)

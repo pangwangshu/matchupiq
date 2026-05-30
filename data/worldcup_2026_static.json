@@ -3,7 +3,7 @@
     "schedule": "https://worldcuply.com/schedule.html",
     "official_reference": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums"
   },
-  "updated_at": "2026-05-25T20:48:04.340944+00:00",
+  "updated_at": "2026-05-30T05:08:05.326913+00:00",
   "participants": [
     {
       "name": "Algeria",
@@ -223,9 +223,9 @@
     },
     {
       "name": "Scotland",
-      "code3": "GBR",
+      "code3": "SCO",
       "flag_url": "https://flagcdn.com/w40/gb-sct.png",
-      "flag_local": "data/flags/gb.png"
+      "flag_local": "data/flags/gb-sct.png"
     },
     {
       "name": "Senegal",
