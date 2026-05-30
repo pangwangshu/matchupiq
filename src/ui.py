@@ -12,8 +12,10 @@ import streamlit.components.v1 as components
 
 try:
     from src.engine import MatchupPredictor
+    from src.prediction_cache import PredictionCacheService
 except ModuleNotFoundError:
     from engine import MatchupPredictor
+    from prediction_cache import PredictionCacheService
 
 MATCHUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
@@ -22,6 +24,11 @@ WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcu
 @st.cache_resource
 def get_predictor() -> MatchupPredictor:
     return MatchupPredictor()
+
+
+@st.cache_resource
+def get_prediction_cache() -> PredictionCacheService:
+    return PredictionCacheService(predictor=get_predictor())
 
 
 def load_match_options() -> dict[str, str]:
@@ -268,8 +275,8 @@ def render_matchup_predictor() -> None:
         )
         return
 
-    predictor = get_predictor()
-    result = predictor.predict(selected)
+    prediction_cache = get_prediction_cache()
+    result = prediction_cache.get_prediction(selected)
 
     st.info("Top 10 predicted matchups")
     for candidate in result.top_candidates:
