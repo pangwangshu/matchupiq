@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import urllib.request
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -273,6 +274,32 @@ def _top_differences(
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Compare baseline rating model vs Polymarket market-odds plugin "
+            "for selected World Cup match numbers."
+        )
+    )
+    parser.add_argument(
+        "--matches",
+        type=str,
+        default=",".join(str(value) for value in TARGET_MATCHES),
+        help="Comma-separated match numbers (example: 82,94).",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Top-N candidates to compare per match.",
+    )
+    args = parser.parse_args()
+
+    selected_matches = tuple(
+        int(part.strip()) for part in args.matches.split(",") if part.strip()
+    )
+    if not selected_matches:
+        raise ValueError("No match numbers provided.")
+
     market_probs = fetch_world_cup_market_probabilities()
 
     baseline_model = RatingPairwiseWinModel()
@@ -288,17 +315,19 @@ def main() -> int:
         "market_source": "Polymarket Sports API",
         "league_slug": LEAGUE_SLUG,
         "market_probability_pairs_loaded": len(market_probs),
+        "selected_matches": list(selected_matches),
+        "top_n_limit": args.limit,
         "matches": {},
     }
 
-    for match_number in TARGET_MATCHES:
-        baseline = baseline_sim.predict_matchup_candidates(match_number=match_number, limit=10)
-        market = market_sim.predict_matchup_candidates(match_number=match_number, limit=10)
+    for match_number in selected_matches:
+        baseline = baseline_sim.predict_matchup_candidates(match_number=match_number, limit=args.limit)
+        market = market_sim.predict_matchup_candidates(match_number=match_number, limit=args.limit)
         report["matches"][str(match_number)] = {
-            "baseline_top_10": [
+            "baseline_top_n": [
                 {"pair": f"{h} vs {a}", "probability": round(p, 6)} for h, a, p in baseline
             ],
-            "market_plugin_top_10": [
+            "market_plugin_top_n": [
                 {"pair": f"{h} vs {a}", "probability": round(p, 6)} for h, a, p in market
             ],
             "largest_probability_deltas": _top_differences(baseline, market, limit=8),
