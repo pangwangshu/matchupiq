@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 try:
     from src.engine import MatchupPredictor
+    from src.team_name_normalization import TeamNameNormalizer
     from src.world_ranking import (
         FifaTeamPowerModel,
         MatchContext,
@@ -26,6 +27,7 @@ try:
     )
 except ModuleNotFoundError:
     from engine import MatchupPredictor
+    from team_name_normalization import TeamNameNormalizer
     from world_ranking import (
         FifaTeamPowerModel,
         MatchContext,
@@ -66,6 +68,18 @@ def _parse_event_pair(title: str) -> tuple[str, str] | None:
         return None
     left, right = title.split(" vs. ", 1)
     return left.strip(), right.strip()
+
+
+def _canonical_pair(
+    pair: tuple[str, str],
+    normalizer: TeamNameNormalizer,
+) -> tuple[str, str] | None:
+    left, right = pair
+    left_name = normalizer.resolve(left)
+    right_name = normalizer.resolve(right)
+    if left_name is None or right_name is None:
+        return None
+    return left_name, right_name
 
 
 def _to_midpoint_probability(market: dict[str, Any]) -> float | None:
@@ -110,7 +124,9 @@ def _event_three_way_probability(event: dict[str, Any]) -> ThreeWayProbability |
     )
 
 
-def fetch_world_cup_market_probabilities() -> dict[tuple[str, str], ThreeWayProbability]:
+def fetch_world_cup_market_probabilities(
+    normalizer: TeamNameNormalizer,
+) -> dict[tuple[str, str], ThreeWayProbability]:
     out: dict[tuple[str, str], ThreeWayProbability] = {}
     offset = 0
     while True:
@@ -128,10 +144,13 @@ def fetch_world_cup_market_probabilities() -> dict[tuple[str, str], ThreeWayProb
             pair = _parse_event_pair(str(event.get("title", "")))
             if pair is None:
                 continue
+            canonical_pair = _canonical_pair(pair, normalizer)
+            if canonical_pair is None:
+                continue
             probs = _event_three_way_probability(event)
             if probs is None:
                 continue
-            out[pair] = probs
+            out[canonical_pair] = probs
 
         offset += PAGE_SIZE
     return out
@@ -300,7 +319,16 @@ def main() -> int:
     if not selected_matches:
         raise ValueError("No match numbers provided.")
 
-    market_probs = fetch_world_cup_market_probabilities()
+    predictor = MatchupPredictor()
+    world_cup_data = predictor._load_world_cup_data()
+    canonical_names = [
+        str(participant.get("name"))
+        for participant in world_cup_data.get("participants", [])
+        if isinstance(participant, dict) and participant.get("name")
+    ]
+    normalizer = TeamNameNormalizer.build(canonical_names=canonical_names)
+
+    market_probs = fetch_world_cup_market_probabilities(normalizer=normalizer)
 
     baseline_model = RatingPairwiseWinModel()
     market_plugin_model = PolymarketOddsPluginPairwiseWinModel(

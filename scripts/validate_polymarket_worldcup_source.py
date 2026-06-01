@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import json
 import statistics
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.team_name_normalization import TeamNameNormalizer
 
 WORLD_CUP_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
 POLYMARKET_WORLD_CUP_LEAGUE = "fifawc"
@@ -39,6 +46,13 @@ def _load_world_cup_schedule() -> list[dict]:
     if not isinstance(schedule, list):
         raise ValueError("worldcup_2026_static.json schedule must be a list.")
     return schedule
+
+
+def _load_world_cup_payload() -> dict:
+    payload = json.loads(WORLD_CUP_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("worldcup_2026_static.json must contain a JSON object.")
+    return payload
 
 
 def _fetch_world_cup_events() -> list[dict]:
@@ -76,6 +90,18 @@ def _parse_schedule_matchup_to_pair(matchup: str) -> tuple[str, str] | None:
 def _normalize_unordered_pair(pair: tuple[str, str]) -> tuple[str, str]:
     left, right = pair
     return tuple(sorted((left, right)))
+
+
+def _normalize_canonical_pair(
+    pair: tuple[str, str],
+    normalizer: TeamNameNormalizer,
+) -> tuple[str, str] | None:
+    left, right = pair
+    left_canonical = normalizer.resolve(left)
+    right_canonical = normalizer.resolve(right)
+    if left_canonical is None or right_canonical is None:
+        return None
+    return _normalize_unordered_pair((left_canonical, right_canonical))
 
 
 def _probe_market_quality(events: list[dict]) -> OddsProbeSummary:
@@ -147,7 +173,10 @@ def _iso_utc_now() -> str:
 
 def main() -> int:
     try:
-        schedule = _load_world_cup_schedule()
+        world_cup_payload = _load_world_cup_payload()
+        schedule = world_cup_payload.get("schedule", [])
+        if not isinstance(schedule, list):
+            raise ValueError("worldcup_2026_static.json schedule must be a list.")
         events = _fetch_world_cup_events()
     except urllib.error.HTTPError as exc:
         print(
@@ -178,6 +207,12 @@ def main() -> int:
 
     group_matches = [match for match in schedule if match.get("stage") == "group_stage"]
     knockout_matches = [match for match in schedule if match.get("stage") != "group_stage"]
+    canonical_names = [
+        str(participant.get("name"))
+        for participant in world_cup_payload.get("participants", [])
+        if isinstance(participant, dict) and participant.get("name")
+    ]
+    normalizer = TeamNameNormalizer.build(canonical_names=canonical_names)
 
     schedule_group_pairs = {
         _normalize_unordered_pair(pair)
@@ -194,6 +229,26 @@ def main() -> int:
 
     coverage_pairs = schedule_group_pairs & event_pairs
     missing_pairs = sorted(schedule_group_pairs - event_pairs)
+
+    normalized_schedule_pairs = {
+        normalized_pair
+        for match in group_matches
+        for pair in [_parse_schedule_matchup_to_pair(str(match.get("matchup", "")))]
+        if pair is not None
+        for normalized_pair in [_normalize_canonical_pair(pair, normalizer)]
+        if normalized_pair is not None
+    }
+    normalized_event_pairs = {
+        normalized_pair
+        for event in events
+        for pair in [_parse_polymarket_title_to_pair(str(event.get("title", "")))]
+        if pair is not None
+        for normalized_pair in [_normalize_canonical_pair(pair, normalizer)]
+        if normalized_pair is not None
+    }
+    normalized_coverage_pairs = normalized_schedule_pairs & normalized_event_pairs
+    normalized_missing_pairs = sorted(normalized_schedule_pairs - normalized_event_pairs)
+
     quality = _probe_market_quality(events)
     knockout_candidates = _knockout_like_events(events)
 
@@ -211,6 +266,13 @@ def main() -> int:
             (len(coverage_pairs) / len(schedule_group_pairs)) if schedule_group_pairs else 0.0, 4
         ),
         "missing_group_pairs_sample": missing_pairs[:8],
+        "normalized_group_pair_coverage_count": len(normalized_coverage_pairs),
+        "normalized_group_pair_total": len(normalized_schedule_pairs),
+        "normalized_group_pair_coverage_ratio": round(
+            (len(normalized_coverage_pairs) / len(normalized_schedule_pairs)) if normalized_schedule_pairs else 0.0,
+            4,
+        ),
+        "normalized_missing_group_pairs_sample": normalized_missing_pairs[:8],
         "knockout_like_event_count": len(knockout_candidates),
         "first_event_title": events[0].get("title") if events else None,
         "last_event_title": events[-1].get("title") if events else None,

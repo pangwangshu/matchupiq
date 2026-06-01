@@ -84,3 +84,42 @@ Implications for Phase D:
 - Keep deterministic fallback to `RatingPairwiseWinModel` as required by the fallback contract.
 - Implement explicit team-name normalization/alias mapping (static schedule names and market team names are not always aligned).
 - Treat knockout coverage as dynamic: markets may appear later as bracket participants become known.
+
+## Name-Mismatch Diagnosis (2026-06-01)
+
+Live validation snapshot on 2026-06-01:
+- Exact-string group-stage coverage remained `47/72` (`65.28%`).
+- `25` group-stage fixtures were unmatched under exact string pairing.
+
+Root cause for the `25` unmatched fixtures:
+- The unmatched count is driven by team alias differences between local schedule naming and Polymarket naming, not by absent fixtures.
+- Extra Polymarket group-stage pairs not found via exact local names: `25` (1:1 with unmatched local pairs).
+
+Observed alias pairs:
+- `Turkey` <-> `Turkiye`
+- `Iran` <-> `IR Iran`
+- `South Korea` <-> `Korea Republic`
+- `Czech Republic` <-> `Czechia`
+- `Ivory Coast` <-> `Cote d'Ivoire`
+- `Curaçao` <-> `Curacao`
+- `Cape Verde` <-> `Cabo Verde`
+- `DR Congo` <-> `Congo DR`
+- `Bosnia and Herzegovina` <-> `Bosnia-Herzegovina`
+
+## Normalization Module Prep
+
+Scaffold added:
+- `src/team_name_normalization.py`
+  - `normalize_team_name(raw: str) -> str`
+  - `TeamNameNormalizer.build(canonical_names, alias_map=None)`
+  - `TeamNameNormalizer.resolve(raw_name)`
+  - default Polymarket alias table for known World Cup mismatches
+- `tests/test_team_name_normalization.py`
+  - punctuation/diacritic normalization checks
+  - Polymarket alias resolution checks
+  - ambiguity guard checks
+
+Validation script enhancement:
+- `scripts/validate_polymarket_worldcup_source.py` now reports both:
+  - exact-string coverage (`group_pair_coverage_*`)
+  - alias-normalized coverage (`normalized_group_pair_coverage_*`)
