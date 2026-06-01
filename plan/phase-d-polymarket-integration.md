@@ -55,3 +55,32 @@ Integration points:
 ## Exit Criteria
 
 - Predictor can run using market-driven probabilities with safe fallback behavior.
+
+## Data Source Validation (2026-05-31)
+
+Selected source: `Polymarket Sports API` via `https://gateway.polymarket.us`
+
+Why this source:
+- Public endpoint access (no API key required for read paths tested)
+- World Cup league slug available (`fifawc`)
+- Match-level event payload includes teams, market sides, bid/ask quotes, and freshness timestamps
+- Supports reliability gates already planned here (spread, freshness, and liquidity/market-depth proxies)
+
+Validation script:
+- `python scripts/validate_polymarket_worldcup_source.py`
+
+Observed from live probe on 2026-05-31:
+- Local schedule counts: `72` group-stage, `32` knockout-stage
+- Polymarket `fifawc` match events currently returned: `72`
+- Group pair coverage vs local static schedule by team-name matching: `47/72` (`65.28%`)
+- Knockout-like match events currently detected in feed: `0`
+- Market quality sample (216 markets across 72 events):
+  - Missing bid/ask quote on `27` markets
+  - Average spread `0.1133`, max spread `0.42`
+  - 3-way midpoint implied-probability totals out of `[0.90, 1.10]`: `3` events
+
+Implications for Phase D:
+- Use Polymarket as primary source for live odds ingestion.
+- Keep deterministic fallback to `RatingPairwiseWinModel` as required by the fallback contract.
+- Implement explicit team-name normalization/alias mapping (static schedule names and market team names are not always aligned).
+- Treat knockout coverage as dynamic: markets may appear later as bracket participants become known.
