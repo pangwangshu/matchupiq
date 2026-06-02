@@ -123,3 +123,29 @@ Validation script enhancement:
 - `scripts/validate_polymarket_worldcup_source.py` now reports both:
   - exact-string coverage (`group_pair_coverage_*`)
   - alias-normalized coverage (`normalized_group_pair_coverage_*`)
+
+Normalization outcome achieved on 2026-06-01:
+- Exact-string group-stage coverage was `47/72`.
+- After alias normalization, group-stage coverage improved to `72/72`.
+- This confirmed that the previously unmatched `25` fixtures were caused by naming differences rather than missing Polymarket fixtures.
+- The comparison workflow now loads more market pairs for plugin-backed simulation, which materially changes some downstream knockout-path predictions.
+
+## Provider Stability Note (2026-06-02)
+
+Observed behavior during live comparison runs on 2026-06-02:
+- Polymarket intermittently returned `HTTP 500` for the `fifawc` events endpoint.
+- The failures were not consistent across retries.
+- The same comparison commands succeeded when retried sequentially after failing in parallel.
+- Successful runs also showed small variation in loaded market-pair counts between runs, which suggests the provider can be transiently unstable or sensitive to concurrent request patterns.
+
+Current interpretation:
+- This does not look like a permanent outage.
+- This does not currently look like a deterministic bug in local code.
+- Treat provider `500` responses as recoverable upstream instability and design ingestion accordingly.
+
+Follow-up for next implementation step:
+- add bounded retry with backoff around Polymarket fetches
+- avoid unnecessary parallel fetches against the same endpoint
+- cache the last known good market snapshot
+- log fetch failures and fallback reasons
+- keep deterministic fallback to `RatingPairwiseWinModel` when market fetch fails
