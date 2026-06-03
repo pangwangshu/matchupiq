@@ -1,6 +1,6 @@
 # Phase D - Polymarket Signal Integration
 
-Status: Planned
+Status: In Progress
 
 ## Goal
 
@@ -19,29 +19,61 @@ Integration points:
 ## Tasks
 
 1. Build Polymarket ingestion component:
-   - fetch odds for relevant teams/markets
-   - map market symbols/contracts to project team names
-   - parse timestamp/freshness metadata
+   - [x] fetch odds for relevant teams/markets
+   - [x] map market symbols/contracts to project team names
+   - [x] parse timestamp/freshness metadata
 2. Implement reliability gates:
-   - minimum liquidity threshold
-   - maximum spread threshold
-   - data freshness TTL
-3. Implement `market` strength provider:
-   - implied probability conversion
-   - team-level strength mapping where needed
-4. Add `hybrid` provider:
-   - market-first when confidence gates pass
-   - fallback to FIFA ranking when stale/missing
-   - optional weighted blend if both are valid
+   - [x] minimum liquidity threshold
+   - [x] maximum spread threshold
+   - [x] data freshness TTL
+4. Implement `hybrid` provider:
+   - [x] market-first when confidence gates pass
+   - [x] fallback to FIFA ranking when stale/missing
+   - [ ] optional weighted blend if both are valid
 5. Add runtime configuration flags:
-   - strength mode (`fifa`, `market`, `hybrid`)
-   - refresh interval / cache TTL
+   - [ ] strength mode (`fifa`, `market`, `hybrid`)
+   - [ ] refresh interval / cache TTL
 
+Removed from immediate scope for this patch:
+3. Implement `market` strength provider:
+   - deferred; current production path is `hybrid` with deterministic rating fallback
+
+## Implementation Snapshot (2026-06-02)
+
+Implemented in this repo:
+- `src/polymarket.py`
+  - `GatewayPolymarketSnapshotFetcher`
+  - `PolymarketSnapshotStore`
+  - `HybridPairwiseWinModel`
+- `src/engine.py`
+  - default world-ranking path now constructs `HybridPairwiseWinModel`
+  - added explicit `refresh_polymarket_snapshot()` helper
+- `tests/test_polymarket.py`
+  - market-hit behavior
+  - stale/missing fallback behavior
+  - last-known-good snapshot persistence behavior
+
+Design actually shipped:
+- Predictor hot path is cache-first and non-blocking with respect to Polymarket.
+- Live Polymarket fetch is not required for prediction to succeed.
+- If no usable snapshot is present, per-match fallback deterministically delegates to `RatingPairwiseWinModel`.
+- The snapshot store persists a last-known-good payload at `data/polymarket_last_snapshot.json`.
+
+Current default behavior:
+- `MatchupPredictor.predict(...)` will use Polymarket odds only if a usable cached snapshot already exists.
+- `MatchupPredictor.refresh_polymarket_snapshot()` must be called explicitly to fetch a new snapshot.
+- This was chosen to protect response latency and avoid UI/API hangs when Polymarket is slow or unstable.
 ## Tests
 
+Completed:
 1. Provider fallback behavior under stale/missing market data.
-2. Mapping and normalization correctness for sample odds payload.
-3. Stable candidate output with deterministic mocked market feed.
+2. Stable candidate output with deterministic mocked market feed.
+3. Last-known-good snapshot survives refresh failure and process restart.
+
+Still useful to add:
+4. Fetcher parsing tests against captured Polymarket payload fixtures.
+5. Engine/UI integration coverage for explicit snapshot refresh behavior.
+6. Configuration tests once runtime mode flags and TTL controls exist.
 
 ## Fallback Policy Contract
 
@@ -54,7 +86,22 @@ Integration points:
 
 ## Exit Criteria
 
-- Predictor can run using market-driven probabilities with safe fallback behavior.
+- [x] Predictor can run using market-driven probabilities with safe fallback behavior.
+- [ ] UI/API expose an intentional refresh/configuration story for Polymarket snapshots.
+- [ ] User-selectable strength modes exist (`fifa`, `hybrid`, optional `market`).
+
+## Verification (2026-06-02)
+
+Verified after implementation:
+- `pytest tests/test_polymarket.py tests/test_world_ranking.py tests/test_engine.py -q`
+- result: `27 passed`
+
+Verified code-path behavior:
+- `src/ui.py` creates `MatchupPredictor()` through `get_predictor()`.
+- That predictor uses the hybrid-capable simulator factory in `src/engine.py`.
+- However, `src/ui.py` does not call `refresh_polymarket_snapshot()`.
+- Therefore the UI will only reflect Polymarket odds when a usable cached snapshot already exists on disk or in memory.
+- If no snapshot is present, the UI still works, but predictions come from deterministic rating fallback.
 
 ## Data Source Validation (2026-05-31)
 
@@ -144,8 +191,7 @@ Current interpretation:
 - Treat provider `500` responses as recoverable upstream instability and design ingestion accordingly.
 
 Follow-up for next implementation step:
-- add bounded retry with backoff around Polymarket fetches
-- avoid unnecessary parallel fetches against the same endpoint
-- cache the last known good market snapshot
-- log fetch failures and fallback reasons
-- keep deterministic fallback to `RatingPairwiseWinModel` when market fetch fails
+- expose a deliberate refresh trigger in UI/API or app startup path
+- add runtime configuration for mode selection and TTL thresholds
+- decide whether a pure `market` mode is still desired, or whether `hybrid` should remain the only market-backed production path
+- add payload-fixture tests for fetcher/parser compatibility against real Polymarket responses

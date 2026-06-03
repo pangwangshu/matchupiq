@@ -9,7 +9,9 @@ from typing import Protocol
 
 try:
     from src.models import MatchupCandidate, PredictionResponse
+    from src.polymarket import HybridPairwiseWinModel, PolymarketSnapshotStore, GatewayPolymarketSnapshotFetcher
     from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from src.team_name_normalization import TeamNameNormalizer
     from src.tournament import MatchResultState, TournamentStructureResolver
     from src.world_ranking import (
         FifaTeamPowerModel,
@@ -20,7 +22,9 @@ try:
     )
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
+    from polymarket import HybridPairwiseWinModel, PolymarketSnapshotStore, GatewayPolymarketSnapshotFetcher
     from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from team_name_normalization import TeamNameNormalizer
     from tournament import MatchResultState, TournamentStructureResolver
     from world_ranking import (
         FifaTeamPowerModel,
@@ -58,7 +62,10 @@ class TournamentSimulatorFactory(Protocol):
     def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
         ...
 
-    def create_default_pairwise_win_model(self) -> PairwiseWinModel:
+    def create_default_pairwise_win_model(
+        self,
+        canonical_team_names: list[str] | None = None,
+    ) -> PairwiseWinModel:
         ...
 
     def create(
@@ -96,6 +103,28 @@ class StaticJsonMatchDataProvider:
 
 
 class WorldRankingSimulatorFactory:
+    def __init__(
+        self,
+        *,
+        use_polymarket_hybrid: bool = True,
+        polymarket_snapshot_store: PolymarketSnapshotStore | None = None,
+    ) -> None:
+        self.use_polymarket_hybrid = use_polymarket_hybrid
+        self.polymarket_snapshot_store = polymarket_snapshot_store
+
+    def _ensure_polymarket_snapshot_store(
+        self,
+        canonical_team_names: list[str],
+    ) -> PolymarketSnapshotStore:
+        if self.polymarket_snapshot_store is None:
+            normalizer = TeamNameNormalizer.build(canonical_names=canonical_team_names)
+            fetcher = GatewayPolymarketSnapshotFetcher(normalizer=normalizer)
+            self.polymarket_snapshot_store = PolymarketSnapshotStore(
+                fetcher=fetcher,
+                auto_refresh_on_access=False,
+            )
+        return self.polymarket_snapshot_store
+
     def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
         return FifaTeamPowerModel(
             fifa_ranking_data=fifa_ranking_data,
@@ -103,8 +132,26 @@ class WorldRankingSimulatorFactory:
             default_points_fallback=1400.0,
         )
 
-    def create_default_pairwise_win_model(self) -> PairwiseWinModel:
-        return RatingPairwiseWinModel()
+    def create_default_pairwise_win_model(
+        self,
+        canonical_team_names: list[str] | None = None,
+    ) -> PairwiseWinModel:
+        fallback = RatingPairwiseWinModel()
+        if not self.use_polymarket_hybrid or not canonical_team_names:
+            return fallback
+
+        return HybridPairwiseWinModel(
+            snapshot_store=self._ensure_polymarket_snapshot_store(canonical_team_names),
+            fallback=fallback,
+        )
+
+    def refresh_polymarket_snapshot(
+        self,
+        canonical_team_names: list[str],
+    ) -> PolymarketSnapshotStore:
+        store = self._ensure_polymarket_snapshot_store(canonical_team_names)
+        store.refresh_now()
+        return store
 
     def create(
         self,
@@ -144,6 +191,13 @@ class MatchupPredictor:
 
     def _load_fifa_ranking_data(self) -> dict:
         return self.data_provider.load_fifa_ranking_data()
+
+    def _canonical_team_names(self, world_cup_data: dict) -> list[str]:
+        return [
+            str(participant.get("name"))
+            for participant in world_cup_data.get("participants", [])
+            if isinstance(participant, dict) and participant.get("name")
+        ]
 
     def _to_int_or_none(self, raw: object) -> int | None:
         if raw is None:
@@ -312,7 +366,10 @@ class MatchupPredictor:
         world_cup_data = self._load_world_cup_data()
         fifa_ranking_data = self._load_fifa_ranking_data()
         team_power_model = self.simulator_factory.create_default_team_power_model(fifa_ranking_data)
-        pairwise_win_model = self.simulator_factory.create_default_pairwise_win_model()
+        canonical_team_names = self._canonical_team_names(world_cup_data)
+        pairwise_win_model = self.simulator_factory.create_default_pairwise_win_model(
+            canonical_team_names=canonical_team_names,
+        )
         simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
             team_power_model=team_power_model,
@@ -340,6 +397,12 @@ class MatchupPredictor:
                 )
             )
         return out
+
+    def refresh_polymarket_snapshot(self) -> None:
+        world_cup_data = self._load_world_cup_data()
+        canonical_team_names = self._canonical_team_names(world_cup_data)
+        if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
+            self.simulator_factory.refresh_polymarket_snapshot(canonical_team_names)
 
     def predict(self, match_id: str) -> PredictionResponse:
         world_ranking_candidates = None
