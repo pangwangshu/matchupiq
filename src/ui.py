@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import base64
-import json
 import inspect
+import json
 import re
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -19,6 +19,34 @@ except ModuleNotFoundError:
 
 MATCHUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
+FLAG_IMAGE_STYLE = "width:30px; height:20px; object-fit:cover; border-radius:6px;"
+MATCHUP_ROW_STYLE = (
+    "display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); "
+    "align-items:center; column-gap:10px; margin:8px 0;"
+)
+TEAM_NAME_STYLE = (
+    "font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;"
+)
+VS_STYLE = "text-align:center; font-weight:800; letter-spacing:0.5px;"
+
+
+def render_flag_html(flag_b64: str) -> str:
+    return (
+        f"<img src='data:image/png;base64,{flag_b64}' "
+        f"style='{FLAG_IMAGE_STYLE}' />"
+    )
+
+
+def render_matchup_html(home_team: str, away_team: str, home_flag_html: str, away_flag_html: str) -> str:
+    return f"""
+        <div style="{MATCHUP_ROW_STYLE}">
+          <div style="text-align:right; {TEAM_NAME_STYLE}">{home_team}</div>
+          <div style="display:flex; justify-content:center;">{home_flag_html}</div>
+          <div style="{VS_STYLE}">VS</div>
+          <div style="display:flex; justify-content:center;">{away_flag_html}</div>
+          <div style="text-align:left; {TEAM_NAME_STYLE}">{away_team}</div>
+        </div>
+    """
 
 
 @st.cache_resource
@@ -251,28 +279,22 @@ def render_matchup_predictor() -> None:
             away_flag_html = ""
             if home_flag:
                 home_flag_b64 = encode_flag_image(home_flag)
-                home_flag_html = f"<img src='data:image/png;base64,{home_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+                home_flag_html = render_flag_html(home_flag_b64)
             if away_flag:
                 away_flag_b64 = encode_flag_image(away_flag)
-                away_flag_html = f"<img src='data:image/png;base64,{away_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+                away_flag_html = render_flag_html(away_flag_b64)
 
             st.markdown(
-                f"""
-                <div style="display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); align-items:center; column-gap:10px; margin:8px 0;">
-                  <div style="text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{home_team}</div>
-                  <div style="display:flex; justify-content:center;">{home_flag_html}</div>
-                  <div style="text-align:center; font-weight:800; letter-spacing:0.5px;">VS</div>
-                  <div style="display:flex; justify-content:center;">{away_flag_html}</div>
-                  <div style="text-align:left; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{away_team}</div>
-                </div>
-                """,
+                render_matchup_html(home_team, away_team, home_flag_html, away_flag_html),
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(f"**{matchup_text}**")
-        st.write(
-            f"{selected_match['date']} {selected_match['local_time']} | {selected_match['stadium']}, {selected_match['city']}"
+        match_details = (
+            f"{selected_match['date']} {selected_match['local_time']} | "
+            f"{selected_match['stadium']}, {selected_match['city']}"
         )
+        st.write(match_details)
         return
 
     prediction_cache = get_prediction_cache()
@@ -286,21 +308,18 @@ def render_matchup_predictor() -> None:
         away_flag_html = ""
         if home_flag:
             home_flag_b64 = encode_flag_image(home_flag)
-            home_flag_html = f"<img src='data:image/png;base64,{home_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+            home_flag_html = render_flag_html(home_flag_b64)
         if away_flag:
             away_flag_b64 = encode_flag_image(away_flag)
-            away_flag_html = f"<img src='data:image/png;base64,{away_flag_b64}' style='width:30px; height:20px; object-fit:cover; border-radius:6px;' />"
+            away_flag_html = render_flag_html(away_flag_b64)
 
         st.markdown(
-            f"""
-            <div style="display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); align-items:center; column-gap:10px; margin:8px 0;">
-              <div style="text-align:right; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{candidate.home_team}</div>
-              <div style="display:flex; justify-content:center;">{home_flag_html}</div>
-              <div style="text-align:center; font-weight:800; letter-spacing:0.5px;">VS</div>
-              <div style="display:flex; justify-content:center;">{away_flag_html}</div>
-              <div style="text-align:left; font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;">{candidate.away_team}</div>
-            </div>
-            """,
+            render_matchup_html(
+                candidate.home_team,
+                candidate.away_team,
+                home_flag_html,
+                away_flag_html,
+            ),
             unsafe_allow_html=True,
         )
 

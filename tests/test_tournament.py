@@ -122,12 +122,48 @@ def test_build_rule_based_pairs_uses_resolved_winner_team_when_available() -> No
 def test_group_slots_collapse_to_ranked_teams_when_group_completed() -> None:
     resolver = _resolver()
     match_results = {
-        1: MatchResultState(played=True, home_team="Mexico", away_team="South Africa", home_goals=1, away_goals=0),
-        2: MatchResultState(played=True, home_team="South Korea", away_team="Czech Republic", home_goals=0, away_goals=0),
-        25: MatchResultState(played=True, home_team="Czech Republic", away_team="South Africa", home_goals=0, away_goals=2),
-        28: MatchResultState(played=True, home_team="Mexico", away_team="South Korea", home_goals=2, away_goals=0),
-        53: MatchResultState(played=True, home_team="Czech Republic", away_team="Mexico", home_goals=1, away_goals=1),
-        54: MatchResultState(played=True, home_team="South Africa", away_team="South Korea", home_goals=1, away_goals=2),
+        1: MatchResultState(
+            played=True,
+            home_team="Mexico",
+            away_team="South Africa",
+            home_goals=1,
+            away_goals=0,
+        ),
+        2: MatchResultState(
+            played=True,
+            home_team="South Korea",
+            away_team="Czech Republic",
+            home_goals=0,
+            away_goals=0,
+        ),
+        25: MatchResultState(
+            played=True,
+            home_team="Czech Republic",
+            away_team="South Africa",
+            home_goals=0,
+            away_goals=2,
+        ),
+        28: MatchResultState(
+            played=True,
+            home_team="Mexico",
+            away_team="South Korea",
+            home_goals=2,
+            away_goals=0,
+        ),
+        53: MatchResultState(
+            played=True,
+            home_team="Czech Republic",
+            away_team="Mexico",
+            home_goals=1,
+            away_goals=1,
+        ),
+        54: MatchResultState(
+            played=True,
+            home_team="South Africa",
+            away_team="South Korea",
+            home_goals=1,
+            away_goals=2,
+        ),
     }
 
     winners = resolver.resolve_slot_teams("Group A winners", match_results=match_results)

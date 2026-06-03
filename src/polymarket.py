@@ -514,6 +514,25 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         self.market_hits = 0
         self.fallback_hits = 0
 
+    def _record_fallback(
+        self,
+        *,
+        reason: str,
+        mode: str,
+        match_context: MatchContext,
+        home_team: str,
+        away_team: str,
+    ) -> None:
+        self.fallback_hits += 1
+        logger.info(
+            "polymarket_%s_fallback reason=%s match_number=%s home=%s away=%s",
+            mode,
+            reason,
+            match_context.match_number,
+            home_team,
+            away_team,
+        )
+
     def _lookup_market(
         self,
         home_team: str,
@@ -565,13 +584,12 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         decisive_band: float,
         reason: str,
     ) -> list[MatchOutcome]:
-        self.fallback_hits += 1
-        logger.info(
-            "polymarket_group_fallback reason=%s match_number=%s home=%s away=%s",
-            reason,
-            match_context.match_number,
-            home_team,
-            away_team,
+        self._record_fallback(
+            reason=reason,
+            mode="group",
+            match_context=match_context,
+            home_team=home_team,
+            away_team=away_team,
         )
         return self.fallback.group_outcomes(
             home_team,
@@ -580,6 +598,33 @@ class HybridPairwiseWinModel(PairwiseWinModel):
             team_power_model=team_power_model,
             model_config=model_config,
             decisive_band=decisive_band,
+        )
+
+    def _fallback_knockout_probability(
+        self,
+        home_team: str,
+        away_team: str,
+        match_context: MatchContext,
+        *,
+        team_power_model: TeamPowerModel,
+        model_config: WorldRankingModelConfig,
+        draw_band: float,
+        reason: str,
+    ) -> float:
+        self._record_fallback(
+            reason=reason,
+            mode="knockout",
+            match_context=match_context,
+            home_team=home_team,
+            away_team=away_team,
+        )
+        return self.fallback.knockout_home_win_probability(
+            home_team,
+            away_team,
+            match_context,
+            team_power_model=team_power_model,
+            model_config=model_config,
+            draw_band=draw_band,
         )
 
     def group_outcomes(
@@ -625,21 +670,14 @@ class HybridPairwiseWinModel(PairwiseWinModel):
     ) -> float:
         market_probs, reason = self._lookup_market(home_team, away_team)
         if market_probs is None:
-            self.fallback_hits += 1
-            logger.info(
-                "polymarket_knockout_fallback reason=%s match_number=%s home=%s away=%s",
-                reason,
-                match_context.match_number,
-                home_team,
-                away_team,
-            )
-            return self.fallback.knockout_home_win_probability(
+            return self._fallback_knockout_probability(
                 home_team,
                 away_team,
                 match_context,
                 team_power_model=team_power_model,
                 model_config=model_config,
                 draw_band=draw_band,
+                reason=reason,
             )
 
         self.market_hits += 1

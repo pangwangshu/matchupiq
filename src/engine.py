@@ -9,8 +9,12 @@ from typing import Protocol
 
 try:
     from src.models import MatchupCandidate, PredictionResponse
-    from src.polymarket import HybridPairwiseWinModel, PolymarketSnapshotStore, GatewayPolymarketSnapshotFetcher
-    from src.signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from src.polymarket import (
+        GatewayPolymarketSnapshotFetcher,
+        HybridPairwiseWinModel,
+        PolymarketSnapshotStore,
+    )
+    from src.signals import EloStrengthSignal, GroupFormSignal, TravelRestSignal
     from src.team_name_normalization import TeamNameNormalizer
     from src.tournament import MatchResultState, TournamentStructureResolver
     from src.world_ranking import (
@@ -22,8 +26,12 @@ try:
     )
 except ModuleNotFoundError:
     from models import MatchupCandidate, PredictionResponse
-    from polymarket import HybridPairwiseWinModel, PolymarketSnapshotStore, GatewayPolymarketSnapshotFetcher
-    from signals import EloStrengthSignal, GroupFormSignal, SignalContext, TravelRestSignal
+    from polymarket import (
+        GatewayPolymarketSnapshotFetcher,
+        HybridPairwiseWinModel,
+        PolymarketSnapshotStore,
+    )
+    from signals import EloStrengthSignal, GroupFormSignal, TravelRestSignal
     from team_name_normalization import TeamNameNormalizer
     from tournament import MatchResultState, TournamentStructureResolver
     from world_ranking import (
@@ -260,48 +268,6 @@ class MatchupPredictor:
             groups=world_cup.get("groups", []),
             schedule=world_cup.get("schedule", []),
         )
-
-    def _parse_fixed_matchup(self, matchup_text: str) -> tuple[str, str] | None:
-        return self._resolver().parse_fixed_matchup(matchup_text)
-
-    def _expand_groups(self, group_token: str) -> list[str]:
-        return self._resolver().expand_groups(group_token)
-
-    def _teams_from_groups(self, groups: list[str], group_to_teams: dict[str, list[str]]) -> set[str]:
-        resolver = self._resolver()
-        resolver.group_to_teams = group_to_teams
-        return resolver.teams_from_groups(groups)
-
-    def _parse_group_slot(self, slot_text: str) -> tuple[set[str], str] | None:
-        return self._resolver().parse_group_slot(slot_text)
-
-    def _resolve_slot_teams(
-        self,
-        slot_text: str,
-        schedule_by_number: dict[int, dict],
-        group_to_teams: dict[str, list[str]],
-        cache: dict[int, set[str]],
-        stack: set[int],
-    ) -> set[str]:
-        resolver = self._resolver()
-        resolver.schedule_by_number = schedule_by_number
-        resolver.group_to_teams = group_to_teams
-        resolver._cache = cache
-        return resolver.resolve_slot_teams(slot_text, stack)
-
-    def _resolve_match_team_pool(
-        self,
-        match_number: int,
-        schedule_by_number: dict[int, dict],
-        group_to_teams: dict[str, list[str]],
-        cache: dict[int, set[str]],
-        stack: set[int],
-    ) -> set[str]:
-        resolver = self._resolver()
-        resolver.schedule_by_number = schedule_by_number
-        resolver.group_to_teams = group_to_teams
-        resolver._cache = cache
-        return resolver.resolve_match_team_pool(match_number, stack)
 
     def _build_rule_based_pairs(self, match_number: int) -> list[tuple[str, str]]:
         return self._resolver().build_rule_based_pairs(

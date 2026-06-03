@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from math import exp, isfinite
 from pathlib import Path
 from typing import Any, Iterable, Protocol
 
 try:
-    from src.tournament import MatchResultState, TournamentStructureResolver
+    from src.tournament import (
+        MatchResultState,
+        TournamentStructureResolver,
+        parse_group_slot_text,
+        parse_match_reference,
+    )
 except ModuleNotFoundError:
-    from tournament import MatchResultState, TournamentStructureResolver
+    from tournament import (
+        MatchResultState,
+        TournamentStructureResolver,
+        parse_group_slot_text,
+        parse_match_reference,
+    )
 
 DEFAULT_MODEL_CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "world_ranking_model_config.json"
 
@@ -519,7 +528,13 @@ class WorldRankingTournamentSimulator:
             for team, row in sorted(table.items(), key=lambda item: item[0])
         )
 
-    def _apply_result(self, table: dict[str, TeamStanding], home_team: str, away_team: str, outcome: MatchOutcome) -> None:
+    def _apply_result(
+        self,
+        table: dict[str, TeamStanding],
+        home_team: str,
+        away_team: str,
+        outcome: MatchOutcome,
+    ) -> None:
         home = table[home_team]
         away = table[away_team]
         home.goals_for += outcome.home_goals
@@ -672,13 +687,7 @@ class WorldRankingTournamentSimulator:
         return worlds
 
     def _parse_group_slot_with_order(self, slot_text: str) -> tuple[list[str], str] | None:
-        pattern = r"^Group\s+([A-Z](?:/[A-Z])*)\s+(winners|runners-up|third place)$"
-        match = re.match(pattern, slot_text.strip(), flags=re.IGNORECASE)
-        if not match:
-            return None
-        group_letters = self.resolver.expand_groups(match.group(1).upper())
-        slot_type = match.group(2).lower()
-        return group_letters, slot_type
+        return parse_group_slot_text(slot_text)
 
     def _standing_for_group_slot(self, world: WorldScenario, group: str, slot_type: str) -> TeamStanding:
         scenario = world.group_scenarios[group]
@@ -789,15 +798,13 @@ class WorldRankingTournamentSimulator:
                 dist[contender] = weight
             return {team: weight / total for team, weight in dist.items()}
 
-        winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text.strip(), flags=re.IGNORECASE)
-        if winner_match:
-            ref = int(winner_match.group(1))
-            return self._match_winner_distribution(ref, world, third_assignments, memo)
+        winner_match = parse_match_reference(slot_text, outcome="winner")
+        if winner_match is not None:
+            return self._match_winner_distribution(winner_match, world, third_assignments, memo)
 
-        loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text.strip(), flags=re.IGNORECASE)
-        if loser_match:
-            ref = int(loser_match.group(1))
-            return self._match_loser_distribution(ref, world, third_assignments, memo)
+        loser_match = parse_match_reference(slot_text, outcome="loser")
+        if loser_match is not None:
+            return self._match_loser_distribution(loser_match, world, third_assignments, memo)
 
         return {slot_text.strip(): 1.0}
 

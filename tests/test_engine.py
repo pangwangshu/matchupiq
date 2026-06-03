@@ -3,18 +3,28 @@ from __future__ import annotations
 import pytest
 
 from src.engine import MatchDataProvider, MatchupPredictor
+from src.tournament import TournamentStructureResolver
+
+
+def _resolver() -> TournamentStructureResolver:
+    predictor = MatchupPredictor()
+    world = predictor._load_world_cup_data()
+    return TournamentStructureResolver(
+        groups=world["groups"],
+        schedule=world["schedule"],
+    )
 
 
 def test_parse_group_slot_covers_winners_runners_up_and_third_place() -> None:
-    predictor = MatchupPredictor()
+    resolver = _resolver()
 
-    winners = predictor._parse_group_slot("Group E winners")
+    winners = resolver.parse_group_slot("Group E winners")
     assert winners == ({"E"}, "winners")
 
-    runners_up = predictor._parse_group_slot("Group L runners-up")
+    runners_up = resolver.parse_group_slot("Group L runners-up")
     assert runners_up == ({"L"}, "runners-up")
 
-    third_place_multi = predictor._parse_group_slot("Group A/B/C third place")
+    third_place_multi = resolver.parse_group_slot("Group A/B/C third place")
     assert third_place_multi == ({"A", "B", "C"}, "third place")
 
 

@@ -4,7 +4,12 @@ import pytest
 
 from src.engine import MatchupPredictor
 from src.tournament import MatchResultState
-from src.world_ranking import MatchContext, MatchOutcome, FifaTeamPowerModel, WorldRankingTournamentSimulator
+from src.world_ranking import (
+    FifaTeamPowerModel,
+    MatchContext,
+    MatchOutcome,
+    WorldRankingTournamentSimulator,
+)
 
 
 def _simulator() -> WorldRankingTournamentSimulator:

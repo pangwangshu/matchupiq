@@ -4,13 +4,11 @@ import streamlit as st
 
 try:
     from src.ui import (
-        get_round_label,
         load_world_cup_data,
         render_matchup_predictor,
     )
 except ModuleNotFoundError:
     from ui import (
-        get_round_label,
         load_world_cup_data,
         render_matchup_predictor,
     )

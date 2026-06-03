@@ -4,6 +4,46 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
+FIXED_MATCHUP_SPLIT_PATTERN = re.compile(r"\s+vs\s+", flags=re.IGNORECASE)
+GROUP_SLOT_PATTERN = re.compile(
+    r"^Group\s+([A-Z](?:/[A-Z])*)\s+(winners|runners-up|third place)$",
+    flags=re.IGNORECASE,
+)
+MATCH_REFERENCE_PATTERNS = {
+    "winner": re.compile(r"^Winner Match\s+(\d+)$", flags=re.IGNORECASE),
+    "loser": re.compile(r"^Loser Match\s+(\d+)$", flags=re.IGNORECASE),
+}
+
+
+def parse_fixed_matchup_text(matchup_text: str) -> tuple[str, str] | None:
+    parts = FIXED_MATCHUP_SPLIT_PATTERN.split(str(matchup_text), maxsplit=1)
+    if len(parts) != 2:
+        return None
+    return parts[0].strip(), parts[1].strip()
+
+
+def expand_group_token(group_token: str) -> list[str]:
+    return [group.strip() for group in group_token.split("/") if group.strip()]
+
+
+def parse_group_slot_text(slot_text: str) -> tuple[list[str], str] | None:
+    match = GROUP_SLOT_PATTERN.match(slot_text.strip())
+    if not match:
+        return None
+    groups = expand_group_token(match.group(1).upper())
+    slot_type = match.group(2).lower()
+    return groups, slot_type
+
+
+def parse_match_reference(slot_text: str, *, outcome: str) -> int | None:
+    pattern = MATCH_REFERENCE_PATTERNS.get(outcome.lower())
+    if pattern is None:
+        return None
+    match = pattern.match(slot_text.strip())
+    if not match:
+        return None
+    return int(match.group(1))
+
 
 @dataclass(frozen=True)
 class MatchResultState:
@@ -57,13 +97,10 @@ class TournamentStructureResolver:
         self._cache: dict[int, set[str]] = {}
 
     def parse_fixed_matchup(self, matchup_text: str) -> tuple[str, str] | None:
-        parts = re.split(r"\s+vs\s+", str(matchup_text), maxsplit=1, flags=re.IGNORECASE)
-        if len(parts) != 2:
-            return None
-        return parts[0].strip(), parts[1].strip()
+        return parse_fixed_matchup_text(matchup_text)
 
     def expand_groups(self, group_token: str) -> list[str]:
-        return [group.strip() for group in group_token.split("/") if group.strip()]
+        return expand_group_token(group_token)
 
     def teams_from_groups(self, groups: Iterable[str]) -> set[str]:
         teams: set[str] = set()
@@ -72,12 +109,10 @@ class TournamentStructureResolver:
         return teams
 
     def parse_group_slot(self, slot_text: str) -> tuple[set[str], str] | None:
-        pattern = r"^Group\s+([A-Z](?:/[A-Z])*)\s+(winners|runners-up|third place)$"
-        match = re.match(pattern, slot_text.strip(), flags=re.IGNORECASE)
-        if not match:
+        parsed = parse_group_slot_text(slot_text)
+        if parsed is None:
             return None
-        groups = self.expand_groups(match.group(1).upper())
-        slot_type = match.group(2).lower()
+        groups, slot_type = parsed
         return set(groups), slot_type
 
     def _has_played_score(self, result: MatchResultState | None) -> bool:
@@ -157,19 +192,19 @@ class TournamentStructureResolver:
             fallback = self.teams_from_groups(unresolved_groups)
             return resolved | fallback
 
-        winner_match = re.match(r"^Winner Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if winner_match:
+        winner_match = parse_match_reference(slot_text, outcome="winner")
+        if winner_match is not None:
             return self.resolve_match_team_pool(
-                int(winner_match.group(1)),
+                winner_match,
                 stack,
                 match_results=match_results,
                 outcome="winner",
             )
 
-        loser_match = re.match(r"^Loser Match\s+(\d+)$", slot_text, flags=re.IGNORECASE)
-        if loser_match:
+        loser_match = parse_match_reference(slot_text, outcome="loser")
+        if loser_match is not None:
             return self.resolve_match_team_pool(
-                int(loser_match.group(1)),
+                loser_match,
                 stack,
                 match_results=match_results,
                 outcome="loser",
