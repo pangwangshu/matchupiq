@@ -40,6 +40,8 @@ DEFAULT_POLYMARKET_CACHE_PATH = (
 
 @dataclass(frozen=True)
 class ThreeWayProbability:
+    """Normalized home/draw/away probability triple from a market snapshot."""
+
     home_win: float
     draw: float
     away_win: float
@@ -47,12 +49,15 @@ class ThreeWayProbability:
 
 @dataclass(frozen=True)
 class PolymarketMarketSelection:
+    """Selected market data for a single canonical team pairing."""
+
     probabilities: ThreeWayProbability
     max_spread: float | None
     liquidity: float | None
     updated_at_epoch: float | None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the selection for cache persistence."""
         return {
             "probabilities": {
                 "home_win": self.probabilities.home_win,
@@ -66,6 +71,7 @@ class PolymarketMarketSelection:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "PolymarketMarketSelection":
+        """Restore a persisted market selection from a dictionary payload."""
         probabilities = payload.get("probabilities", {})
         return cls(
             probabilities=ThreeWayProbability(
@@ -89,11 +95,14 @@ class PolymarketMarketSelection:
 
 @dataclass(frozen=True)
 class PolymarketSnapshot:
+    """Cached view of all usable Polymarket selections for the tournament."""
+
     fetched_at_epoch: float
     events_seen: int
     market_selections_by_pair: dict[tuple[str, str], PolymarketMarketSelection]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the snapshot to a JSON-friendly structure."""
         return {
             "fetched_at_epoch": self.fetched_at_epoch,
             "events_seen": self.events_seen,
@@ -109,6 +118,7 @@ class PolymarketSnapshot:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "PolymarketSnapshot":
+        """Restore a serialized snapshot from disk or another cache layer."""
         raw_markets = payload.get("market_selections", [])
         market_selections_by_pair: dict[tuple[str, str], PolymarketMarketSelection] = {}
         if isinstance(raw_markets, list):
@@ -128,7 +138,10 @@ class PolymarketSnapshot:
 
 
 class PolymarketSnapshotFetcher(Protocol):
+    """Fetches a fresh Polymarket snapshot from an external provider."""
+
     def fetch_snapshot(self) -> PolymarketSnapshot:
+        """Return the latest snapshot of usable market selections."""
         ...
 
 
@@ -155,6 +168,8 @@ def _extract_numeric(raw: object) -> float | None:
 
 
 class GatewayPolymarketSnapshotFetcher:
+    """Loads and normalizes market data from the Polymarket gateway API."""
+
     def __init__(
         self,
         normalizer: TeamNameNormalizer,
@@ -306,6 +321,7 @@ class GatewayPolymarketSnapshotFetcher:
         )
 
     def fetch_snapshot(self) -> PolymarketSnapshot:
+        """Fetch all usable market selections for the configured league."""
         market_selections_by_pair: dict[tuple[str, str], PolymarketMarketSelection] = {}
         events_seen = 0
         offset = 0
@@ -340,6 +356,8 @@ class GatewayPolymarketSnapshotFetcher:
 
 @dataclass
 class SnapshotCacheEntry:
+    """In-memory cache state for the current Polymarket snapshot."""
+
     snapshot: PolymarketSnapshot
     fresh_until_monotonic: float
     serve_until_monotonic: float
@@ -349,6 +367,8 @@ class SnapshotCacheEntry:
 
 
 class PolymarketSnapshotStore:
+    """Caches market snapshots with stale-while-refresh semantics."""
+
     def __init__(
         self,
         fetcher: PolymarketSnapshotFetcher,
@@ -402,6 +422,7 @@ class PolymarketSnapshotStore:
             logger.exception("polymarket_cache_write_failed path=%s", self.cache_path)
 
     def get_snapshot(self) -> PolymarketSnapshot | None:
+        """Return the freshest available snapshot, optionally triggering refresh."""
         now = self.clock()
         with self._lock:
             entry = self._entry
@@ -419,6 +440,7 @@ class PolymarketSnapshotStore:
             return None
 
     def refresh_now(self) -> PolymarketSnapshot:
+        """Fetch and store a fresh snapshot immediately in the current thread."""
         snapshot = self.fetcher.fetch_snapshot()
         now = self.clock()
         with self._lock:
@@ -432,6 +454,7 @@ class PolymarketSnapshotStore:
 
     @property
     def last_refresh_error(self) -> str | None:
+        """Return the most recent background refresh error, if any."""
         with self._lock:
             return None if self._entry is None else self._entry.last_refresh_error
 
@@ -637,6 +660,7 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         model_config: WorldRankingModelConfig,
         decisive_band: float,
     ) -> list[MatchOutcome]:
+        """Return market-backed group outcomes or delegate to the fallback model."""
         market_probs, reason = self._lookup_market(home_team, away_team)
         if market_probs is None:
             return self._fallback_group_outcomes(
@@ -668,6 +692,7 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         model_config: WorldRankingModelConfig,
         draw_band: float,
     ) -> float:
+        """Return market-backed knockout odds or delegate to the fallback model."""
         market_probs, reason = self._lookup_market(home_team, away_team)
         if market_probs is None:
             return self._fallback_knockout_probability(

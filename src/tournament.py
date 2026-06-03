@@ -47,6 +47,8 @@ def parse_match_reference(slot_text: str, *, outcome: str) -> int | None:
 
 @dataclass(frozen=True)
 class MatchResultState:
+    """Represents the known state of a scheduled match result."""
+
     played: bool
     home_team: str | None = None
     away_team: str | None = None
@@ -56,6 +58,8 @@ class MatchResultState:
 
 @dataclass
 class GroupStandingRow:
+    """Stores points and goal totals for a single group-stage team."""
+
     team: str
     points: int = 0
     goals_for: int = 0
@@ -68,6 +72,8 @@ class GroupStandingRow:
 
 @dataclass
 class TournamentStructureResolver:
+    """Resolves valid teams and matchup pools from tournament structure rules."""
+
     groups: list[dict]
     schedule: list[dict]
 
@@ -97,18 +103,22 @@ class TournamentStructureResolver:
         self._cache: dict[int, set[str]] = {}
 
     def parse_fixed_matchup(self, matchup_text: str) -> tuple[str, str] | None:
+        """Split a literal matchup string into left and right participants."""
         return parse_fixed_matchup_text(matchup_text)
 
     def expand_groups(self, group_token: str) -> list[str]:
+        """Expand slash-separated group tokens such as `A/B/C` into letters."""
         return expand_group_token(group_token)
 
     def teams_from_groups(self, groups: Iterable[str]) -> set[str]:
+        """Return all teams that belong to the supplied group letters."""
         teams: set[str] = set()
         for group_letter in groups:
             teams.update(self.group_to_teams.get(group_letter, []))
         return teams
 
     def parse_group_slot(self, slot_text: str) -> tuple[set[str], str] | None:
+        """Parse slots such as `Group E winners` or `Group A/B third place`."""
         parsed = parse_group_slot_text(slot_text)
         if parsed is None:
             return None
@@ -176,6 +186,7 @@ class TournamentStructureResolver:
         stack: set[int] | None = None,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> set[str]:
+        """Resolve the possible teams that can occupy a bracket slot."""
         slot_text = slot_text.strip()
         stack = stack or set()
         match_results = match_results or {}
@@ -219,6 +230,7 @@ class TournamentStructureResolver:
         match_results: dict[int, MatchResultState] | None = None,
         outcome: str | None = None,
     ) -> set[str]:
+        """Resolve the possible teams involved in a scheduled match."""
         stack = stack or set()
         match_results = match_results or {}
         if outcome:
@@ -263,6 +275,7 @@ class TournamentStructureResolver:
         self,
         match_results: dict[int, MatchResultState],
     ) -> dict[str, list[GroupStandingRow]]:
+        """Compute current group standings from the supplied played results."""
         tables: dict[str, dict[str, GroupStandingRow]] = {
             group: {team: GroupStandingRow(team=team) for team in teams}
             for group, teams in self.group_to_teams.items()
@@ -305,6 +318,7 @@ class TournamentStructureResolver:
         }
 
     def completed_groups(self, match_results: dict[int, MatchResultState]) -> set[str]:
+        """Return the groups whose full schedules have confirmed results."""
         complete: set[str] = set()
         for group, match_numbers in self.group_stage_matches_by_group.items():
             if not match_numbers:
@@ -318,6 +332,7 @@ class TournamentStructureResolver:
         match_number: int,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> list[tuple[str, str]]:
+        """Return all valid ordered home/away pairs allowed for a match."""
         match_results = match_results or {}
         selected_match = next(
             (match for match in self.schedule if str(match.get("match_number")) == str(match_number)),

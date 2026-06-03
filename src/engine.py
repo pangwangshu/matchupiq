@@ -48,32 +48,43 @@ FIFA_RANKING_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "fifa
 
 
 class MatchDataProvider(Protocol):
+    """Loads the static and live data required by the prediction engine."""
+
     def load_matches(self) -> dict:
+        """Return the current match metadata and any confirmed live results."""
         ...
 
     def load_world_cup_data(self) -> dict:
+        """Return the canonical tournament structure payload."""
         ...
 
     def load_fifa_ranking_data(self) -> dict:
+        """Return the ranking snapshot used to seed team strength."""
         ...
 
     def load_participant_teams(self) -> list[str]:
+        """Return the full list of participating team names."""
         ...
 
 
 class TournamentSimulator(Protocol):
     def predict_matchup_candidates(self, match_number: int, limit: int = 10) -> list[tuple[str, str, float]]:
+        """Return ranked matchup candidates for a future or unresolved match."""
         ...
 
 
 class TournamentSimulatorFactory(Protocol):
+    """Builds configured simulator components for the active prediction mode."""
+
     def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
+        """Create the default team-strength model for the given ranking payload."""
         ...
 
     def create_default_pairwise_win_model(
         self,
         canonical_team_names: list[str] | None = None,
     ) -> PairwiseWinModel:
+        """Create the default pairwise match model for the configured mode."""
         ...
 
     def create(
@@ -83,34 +94,43 @@ class TournamentSimulatorFactory(Protocol):
         pairwise_win_model: PairwiseWinModel,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> TournamentSimulator:
+        """Assemble a tournament simulator from the supplied model components."""
         ...
 
 
 @dataclass
 class StaticJsonMatchDataProvider:
+    """Reads tournament, match, and ranking data from local JSON snapshots."""
+
     matches_path: Path = DATA_PATH
     world_cup_path: Path = WORLD_CUP_DATA_PATH
     fifa_ranking_path: Path = FIFA_RANKING_DATA_PATH
 
     def load_matches(self) -> dict:
+        """Load the UI/API match listing plus any live-result fields."""
         with self.matches_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     def load_world_cup_data(self) -> dict:
+        """Load the canonical World Cup structure and schedule."""
         with self.world_cup_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     def load_fifa_ranking_data(self) -> dict:
+        """Load the static FIFA ranking snapshot used by default models."""
         with self.fifa_ranking_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
     def load_participant_teams(self) -> list[str]:
+        """Load the participating team names from the World Cup payload."""
         payload = self.load_world_cup_data()
         participants = payload.get("participants", [])
         return [p["name"] for p in participants if p.get("name")]
 
 
 class WorldRankingSimulatorFactory:
+    """Creates the default world-ranking simulator stack used by the app."""
+
     def __init__(
         self,
         *,
@@ -134,6 +154,7 @@ class WorldRankingSimulatorFactory:
         return self.polymarket_snapshot_store
 
     def create_default_team_power_model(self, fifa_ranking_data: dict) -> TeamPowerModel:
+        """Build the default FIFA-based team power model."""
         return FifaTeamPowerModel(
             fifa_ranking_data=fifa_ranking_data,
             default_rank_for_unlisted_team=120,
@@ -144,6 +165,7 @@ class WorldRankingSimulatorFactory:
         self,
         canonical_team_names: list[str] | None = None,
     ) -> PairwiseWinModel:
+        """Build the default pairwise model, optionally enabling hybrid market data."""
         fallback = RatingPairwiseWinModel()
         if not self.use_polymarket_hybrid or not canonical_team_names:
             return fallback
@@ -157,6 +179,7 @@ class WorldRankingSimulatorFactory:
         self,
         canonical_team_names: list[str],
     ) -> PolymarketSnapshotStore:
+        """Force-refresh the Polymarket snapshot used by hybrid predictions."""
         store = self._ensure_polymarket_snapshot_store(canonical_team_names)
         store.refresh_now()
         return store
@@ -168,6 +191,7 @@ class WorldRankingSimulatorFactory:
         pairwise_win_model: PairwiseWinModel,
         match_results: dict[int, MatchResultState] | None = None,
     ) -> WorldRankingTournamentSimulator:
+        """Create a world-ranking simulator with the supplied runtime dependencies."""
         return WorldRankingTournamentSimulator(
             world_cup_data=world_cup_data,
             team_power_model=team_power_model,
@@ -177,6 +201,8 @@ class WorldRankingSimulatorFactory:
 
 
 class MatchupPredictor:
+    """High-level entry point for building ranked matchup predictions."""
+
     def __init__(
         self,
         data_provider: MatchDataProvider | None = None,
@@ -365,12 +391,14 @@ class MatchupPredictor:
         return out
 
     def refresh_polymarket_snapshot(self) -> None:
+        """Refresh the market snapshot when hybrid predictions are enabled."""
         world_cup_data = self._load_world_cup_data()
         canonical_team_names = self._canonical_team_names(world_cup_data)
         if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
             self.simulator_factory.refresh_polymarket_snapshot(canonical_team_names)
 
     def predict(self, match_id: str) -> PredictionResponse:
+        """Return the ranked prediction response for the requested match."""
         world_ranking_candidates = None
         try:
             world_ranking_candidates = self._build_world_ranking_candidates(match_id=match_id, limit=10)

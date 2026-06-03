@@ -1,155 +1,227 @@
 # Which Matchup
 
-Predict likely FIFA World Cup 2026 knockout matchups for a selected match.
+Predict the most likely FIFA World Cup 2026 matchups for a selected scheduled match.
 
-## What this project does
-- Input: a 2026 World Cup match (example: Round of 32 Match 82)
-- Output:
-  - If already determined/played: returns confirmed teams
-  - Otherwise: returns top 10 most likely matchups ranked by score
+The project combines tournament-bracket rules, group-stage scenario search, FIFA rankings, and optional Polymarket market data to estimate which teams are most likely to meet in later knockout rounds.
 
-## Quick start
+## What It Does
 
-1. Create and activate a virtual environment:
+- Accepts a target World Cup match as input, usually by scheduled `match_number`.
+- Returns the most likely home/away matchup candidates for that match.
+- Uses real completed match results when they are available in `data/matches_2026.json`.
+- Serves predictions through both:
+  - a FastAPI API
+  - a Streamlit UI
+
+## Current Runtime Behavior
+
+The current default runtime path is:
+
+- `FifaTeamPowerModel` for team strength
+- `HybridPairwiseWinModel` for match probabilities
+- deterministic fallback to `RatingPairwiseWinModel` whenever market data is missing, stale, or low quality
+
+That means the app is resilient even if Polymarket data is unavailable.
+
+## Quick Start
+
+1. Create and activate a virtual environment.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-2. Install dependencies:
+2. Install dependencies.
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-3. Run API (optional):
+3. Run the API.
 
 ```powershell
 uvicorn src.api:app --reload
 ```
 
-4. Run UI:
+4. Run the UI.
 
 ```powershell
 streamlit run src/ui.py
 ```
 
-## API usage
+## API
 
-POST `http://127.0.0.1:8000/predict`
+### Health Check
+
+`GET /health`
+
+Example response:
 
 ```json
 {
-  "match_id": "400021525"
+  "status": "ok"
 }
 ```
 
-## High-level architecture
+### Prediction Endpoint
 
-```text
-Client (UI/API caller)
-        |
-        v
-FastAPI / Streamlit
-        |
-        v
-PredictionCacheService
-        |
-        v
-MatchupPredictor
-        |
-        v
-WorldRankingTournamentSimulator
-   |                         |
-   v                         v
-TeamPowerModel          PairwiseWinModel
- (team strength)        (match win probabilities)
+`POST /predict`
+
+Request body:
+
+```json
+{
+  "match_id": "82"
+}
 ```
 
-## Prediction methodology
+Example response:
 
-The prediction engine combines tournament structure constraints with probabilistic scenario search.
+```json
+{
+  "match_id": "82",
+  "status": "predicted",
+  "confirmed_matchup": null,
+  "top_candidates": [
+    {
+      "home_team": "Germany",
+      "away_team": "Mexico",
+      "score": 0.2145,
+      "reason": "Predicted via scenario-search simulation (group standings + knockout outcome branching)."
+    }
+  ]
+}
+```
 
-1. Resolve valid teams by tournament rules:
-- Uses bracket/group slot logic (`Winner Match X`, `Group A winners`, etc.) to build only valid candidate pairs.
-- If prerequisite matches are completed, real results are used directly to collapse uncertainty.
+Notes:
 
-2. Simulate group-stage scenario space:
-- Uses beam search over group outcomes to keep the most likely world states while controlling combinatorial growth.
-- Group standings are recomputed per scenario with deterministic tie-breaking.
+- `match_id` should match a key understood by the app. In practice, the prediction engine is designed around scheduled World Cup `match_number` values such as `"74"` or `"82"`.
+- The API currently returns `status="predicted"` for prediction responses.
+- Group-stage matches are fixed in the UI and do not require probabilistic prediction.
 
-3. Propagate knockout uncertainty:
-- For unresolved knockout matches, winner/loser distributions are propagated through the bracket.
-- For resolved matches, outcomes are fixed from live result state.
+## UI
 
-4. Score and rank matchup candidates:
-- Aggregates matchup probabilities across world scenarios.
-- Returns top candidates sorted by probability-like score.
+The Streamlit app provides:
 
-### Strength and probability models
+- city and round/category filters
+- a match picker for the 2026 tournament schedule
+- fixed rendering for group-stage matches
+- top matchup candidates for unresolved knockout matches
 
-- `TeamPowerModel`: static team-level strength source (current default: FIFA snapshot).
-- `PairwiseWinModel`: match-level win probability source (current default: rating-based model).
-- `MatchContext`: each pairwise call gets context (`match_number`, `stage`, `date`, `group`) to support future market-backed models.
+The UI entry point is [src/ui.py](/d:/src/which_matchup/src/ui.py).
 
-## Model modes
+## How Predictions Work
 
-| Mode | Team power source | Pairwise source | Status |
-| --- | --- | --- | --- |
-| `fifa` | `FifaTeamPowerModel` | `RatingPairwiseWinModel` | Implemented (default) |
-| `market` | `FifaTeamPowerModel` (or future market-derived power) | Market odds only | Planned (Phase D) |
-| `hybrid` | `FifaTeamPowerModel` | Market-first with deterministic fallback to `RatingPairwiseWinModel` | Planned (Phase D) |
+The prediction engine combines tournament rules with probabilistic simulation.
 
-Current runtime wiring uses the `fifa` path by default through `WorldRankingSimulatorFactory`.
+1. Resolve the valid rule space.
+   Only teams that can legally reach the selected match are considered.
 
-## Caching strategy
+2. Collapse uncertainty with completed results.
+   If prerequisite matches have already been played and recorded, the candidate space narrows immediately.
 
-Predictions are served through `PredictionCacheService` (`src/prediction_cache.py`) to reduce repeated recomputation.
+3. Simulate group-stage outcomes.
+   The engine uses beam search to explore likely group tables without exploding combinatorially.
 
-- `LRU + TTL`: cache entries are bounded by `maxsize` and expire by `ttl_seconds` (default 15 minutes).
-- `Stale-while-refresh`: expired entries are returned immediately, and a background refresh is scheduled.
-- `Single-flight on misses`: per-match locks prevent duplicate concurrent cold computations.
-- `Refresh cooldown`: failed/stale refresh retries are rate-limited (`refresh_retry_cooldown_seconds`, default 30s).
-- `Background workers`: refresh jobs run in a small thread pool (`max_refresh_workers`, default 2).
-- `Failure handling`: refresh errors keep prior value and are logged; serving does not hard-fail if stale value exists.
+4. Propagate knockout uncertainty.
+   Winner and loser distributions flow through the bracket for unresolved matches.
 
-## Data contracts
+5. Aggregate matchup probabilities.
+   The final output is a ranked list of likely home/away pairings.
+
+## Main Components
+
+- `src/api.py`
+  FastAPI app with `/health` and `/predict`.
+- `src/ui.py`
+  Streamlit frontend.
+- `src/engine.py`
+  High-level prediction entry point and simulator wiring.
+- `src/tournament.py`
+  Tournament rule resolution, group-slot parsing, and valid-pair generation.
+- `src/world_ranking.py`
+  Scenario-search simulator and rating-based models.
+- `src/polymarket.py`
+  Market snapshot fetching, caching, and hybrid pairwise model.
+- `src/prediction_cache.py`
+  Stale-while-refresh prediction caching layer.
+- `src/models.py`
+  Request and response models.
+
+## Data Files
 
 ### `data/worldcup_2026_static.json`
 
-- Used for canonical tournament structure.
-- Expected keys:
-  - `groups`
-  - `schedule` (with `match_number`, `stage`, `matchup`/`comment`, and optional `group`, `date` used for `MatchContext`)
-  - `participants`
+Canonical tournament structure.
+
+Expected to contain:
+
+- `participants`
+- `groups`
+- `schedule`
 
 ### `data/fifa_men_ranking_static.json`
 
-- Used by `FifaTeamPowerModel`.
-- Expected shape:
-  - `participants_rankings`: list of rows containing:
-    - `participant_name`
-    - `points`
-    - `rank`
+Static ranking snapshot used by `FifaTeamPowerModel`.
+
+Expected to contain:
+
+- `participants_rankings`
 
 ### `data/matches_2026.json`
 
-- Used for live/completed result overrides and input listing.
-- For live-result collapse, resolver accepts:
-  - Match identity:
-    - `match_number` (or parseable `label` containing `Match <n>`)
-  - Status:
-    - `played` boolean, or `status` in {`played`, `completed`, `complete`, `final`, `finished`, `ft`}
-  - Teams:
-    - preferred: `confirmed_home`, `confirmed_away`
-    - fallback: `home_team`/`away_team` or `home`/`away`
-  - Score:
-    - preferred: `home_goals`, `away_goals`
-    - fallback: `home_score`, `away_score`
+UI match list plus live/completed-result overrides.
 
-## Notes
-- Current signal providers are scaffolded with deterministic example values.
-- Replace `SignalProvider` implementations in `src/signals.py` with live data sources.
-- Match metadata is stored in `data/matches_2026.json`.
-- World-ranking model tuning parameters live in `data/world_ranking_model_config.json`.
+Fields currently used by the app include:
+
+- `match_number`, or a parseable `label` containing `Match <n>`
+- `status` or `played`
+- `confirmed_home`, `confirmed_away`
+- fallback team fields such as `home_team`, `away_team`, `home`, `away`
+- score fields such as `home_goals`, `away_goals`, with `home_score`, `away_score` as fallback
+
+## Caching
+
+Predictions are served through `PredictionCacheService`.
+
+Current behavior:
+
+- LRU cache with TTL
+- stale-while-refresh reads
+- per-match single-flight behavior on cold cache misses
+- background refresh worker pool
+- retry cooldown after refresh failures
+
+Polymarket snapshots are cached separately in `PolymarketSnapshotStore`, including disk persistence of the last known good snapshot.
+
+## Development
+
+Run tests:
+
+```powershell
+pytest -q tests
+```
+
+Run lint:
+
+```powershell
+.\.venv\Scripts\ruff.exe check src tests
+```
+
+## CI
+
+GitHub Actions runs:
+
+- Ruff lint checks
+- unit tests with `pytest`
+
+Workflow file:
+
+- [`.github/workflows/ci.yml`](/d:/src/which_matchup/.github/workflows/ci.yml)
+
+## Limitations
+
+- Predictions depend on the quality of the static tournament and ranking snapshots.
+- Market-backed predictions fall back to rating-based estimates when market data is unavailable or unreliable.
+- The API model supports `confirmed_matchup`, but the current engine path primarily returns ranked predicted candidates.

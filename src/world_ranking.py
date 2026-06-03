@@ -26,6 +26,8 @@ DEFAULT_MODEL_CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "w
 
 @dataclass
 class WorldRankingModelConfig:
+    """Tunable parameters for the rating-based tournament simulator."""
+
     draw_band: float = 20.0
     decisive_band: float = 80.0
 
@@ -68,6 +70,8 @@ class WorldRankingModelConfig:
 
 @dataclass(frozen=True)
 class TeamStrengthProfile:
+    """Normalized team-strength view used by simulation and tie-breaking."""
+
     team: str
     rating: float
     seed_rank: int
@@ -75,6 +79,8 @@ class TeamStrengthProfile:
 
 @dataclass(frozen=True)
 class MatchContext:
+    """Context attached to a pairwise model call for a specific match."""
+
     match_number: int | None
     stage: str | None
     date: str | None
@@ -82,10 +88,14 @@ class MatchContext:
 
 
 class TeamPowerModel(Protocol):
+    """Supplies stable team-level strength information to the simulator."""
+
     def team_rating(self, team: str) -> float:
+        """Return the numeric strength rating for the given team."""
         ...
 
     def team_rank(self, team: str) -> int:
+        """Return the ordinal seed or rank for the given team."""
         ...
 
 
@@ -134,6 +144,8 @@ class PairwiseWinModel(Protocol):
 
 
 class FifaTeamPowerModel:
+    """Team power model backed by a FIFA ranking snapshot."""
+
     def __init__(
         self,
         fifa_ranking_data: dict,
@@ -170,13 +182,17 @@ class FifaTeamPowerModel:
         )
 
     def team_rating(self, team: str) -> float:
+        """Return the FIFA-based strength rating for a team."""
         return self._team_profile(team).rating
 
     def team_rank(self, team: str) -> int:
+        """Return the FIFA rank for a team, with defaults for unknown teams."""
         return self._team_profile(team).seed_rank
 
 
 class RatingPairwiseWinModel:
+    """Rating-based pairwise model for group outcomes and knockout winners."""
+
     @staticmethod
     def _sigmoid(value: float) -> float:
         if value >= 0:
@@ -214,6 +230,7 @@ class RatingPairwiseWinModel:
         model_config: WorldRankingModelConfig,
         decisive_band: float,
     ) -> list["MatchOutcome"]:
+        """Return a three-way group-stage outcome distribution for a matchup."""
         _ = match_context
         diff = self._pairwise_strength_diff(home_team, away_team, team_power_model)
         abs_diff = abs(diff)
@@ -252,6 +269,7 @@ class RatingPairwiseWinModel:
         model_config: WorldRankingModelConfig,
         draw_band: float,
     ) -> float:
+        """Return the home-team win probability for a knockout matchup."""
         _ = match_context
         diff = self._pairwise_strength_diff(home_team, away_team, team_power_model)
         base = self._pairwise_win_probability(
@@ -273,6 +291,8 @@ class RatingPairwiseWinModel:
 
 @dataclass
 class TeamStanding:
+    """Mutable standings row used while exploring scenario branches."""
+
     team: str
     points: int = 0
     goals_for: int = 0
@@ -288,6 +308,8 @@ class TeamStanding:
 
 @dataclass(frozen=True)
 class MatchOutcome:
+    """Concrete scoreline outcome with an associated branch probability."""
+
     home_goals: int
     away_goals: int
     probability: float
@@ -295,6 +317,8 @@ class MatchOutcome:
 
 @dataclass
 class GroupScenario:
+    """Represents one possible completed table for a single group."""
+
     group: str
     probability: float
     standings: list[TeamStanding]
@@ -303,12 +327,16 @@ class GroupScenario:
 
 @dataclass
 class WorldScenario:
+    """Represents one combined set of group outcomes across the tournament."""
+
     probability: float
     group_scenarios: dict[str, GroupScenario]
     signature: tuple
 
 
 class WorldRankingTournamentSimulator:
+    """Predicts tournament matchup candidates via scenario search."""
+
     def __init__(
         self,
         world_cup_data: dict,
@@ -992,6 +1020,7 @@ class WorldRankingTournamentSimulator:
         world_beam_width: int | None = None,
         min_branch_probability: float | None = None,
     ) -> list[tuple[str, str, float]]:
+        """Return the most likely matchups for the requested scheduled match."""
         group_beam_width = (
             self.model_config.prediction_group_beam_width
             if group_beam_width is None
@@ -1041,6 +1070,7 @@ class WorldRankingTournamentSimulator:
 
     # Backward compatibility helper used by older call sites/tests.
     def simulate_tournament(self, match_numbers: Iterable[int] | None = None) -> dict[int, tuple[str, str]]:
+        """Return the top predicted matchup for each requested match number."""
         out: dict[int, tuple[str, str]] = {}
         selected_match_numbers = (
             sorted(int(match_number) for match_number in match_numbers)
