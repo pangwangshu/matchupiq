@@ -8,7 +8,15 @@ from src.world_ranking import (
     FifaTeamPowerModel,
     MatchContext,
     MatchOutcome,
+    WorldRankingModelConfig,
     WorldRankingTournamentSimulator,
+)
+
+FAST_MODEL_CONFIG = WorldRankingModelConfig(
+    prediction_group_beam_width=12,
+    prediction_group_max_scenarios=6,
+    prediction_world_beam_width=24,
+    prediction_min_branch_probability=1e-4,
 )
 
 
@@ -22,6 +30,8 @@ def _simulator() -> WorldRankingTournamentSimulator:
     return WorldRankingTournamentSimulator(
         world_cup_data=predictor._load_world_cup_data(),
         team_power_model=team_power_model,
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
 
 
@@ -98,6 +108,8 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     baseline_simulator = WorldRankingTournamentSimulator(
         world_cup_data=world_cup_data,
         team_power_model=team_power_model,
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
     baseline = baseline_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert baseline
@@ -115,6 +127,8 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
                 away_goals=1,
             )
         },
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
     constrained = constrained_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert constrained
@@ -177,6 +191,8 @@ def test_simulator_construction_without_fifa_payload_is_supported_and_determinis
         world_cup_data=predictor._load_world_cup_data(),
         team_power_model=team_power_model,
         pairwise_win_model=pairwise_win_model,
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
 
     first = simulator.predict_matchup_candidates(match_number=82, limit=10)
@@ -239,10 +255,12 @@ def test_group_outcome_probability_contract_rejects_non_normalized_distribution(
         world_cup_data=predictor._load_world_cup_data(),
         team_power_model=FixedTeamPowerModel(),
         pairwise_win_model=InvalidGroupPairwiseWinModel(),
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
 
     with pytest.raises(ValueError, match="must sum to 1.0"):
-        simulator.predict_matchup_candidates(match_number=82, limit=10)
+        simulator._group_outcomes("A", "B", match_number=1, group="A")
 
 
 def test_knockout_probability_contract_clamps_to_closed_interval() -> None:
@@ -289,6 +307,8 @@ def test_knockout_probability_contract_clamps_to_closed_interval() -> None:
         world_cup_data=predictor._load_world_cup_data(),
         team_power_model=FixedTeamPowerModel(),
         pairwise_win_model=OverconfidentPairwiseWinModel(),
+        model_config=FAST_MODEL_CONFIG,
+        model_config_path=None,
     )
 
     assert simulator._knockout_home_win_probability("A", "B", match_number=104) == 1.0

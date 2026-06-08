@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 import src.api as api_module
+from src.models import MatchupCandidate, PredictionResponse
 
 
 def test_health() -> None:
@@ -13,7 +14,23 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_predict_success() -> None:
+def test_predict_success(monkeypatch) -> None:
+    class StubCacheService:
+        def get_prediction(self, match_id: str):
+            return PredictionResponse(
+                match_id=match_id,
+                status="predicted",
+                top_candidates=[
+                    MatchupCandidate(
+                        home_team="Mexico",
+                        away_team="South Africa",
+                        score=1.0,
+                        reason="API serialization test.",
+                    )
+                ],
+            )
+
+    monkeypatch.setattr(api_module, "prediction_cache", StubCacheService())
     client = TestClient(api_module.app)
     response = client.post("/predict", json={"match_id": "74"})
 

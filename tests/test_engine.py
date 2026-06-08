@@ -2,8 +2,43 @@ from __future__ import annotations
 
 import pytest
 
-from src.engine import MatchDataProvider, MatchupPredictor
+from src.engine import MatchDataProvider, MatchupPredictor, WorldRankingSimulatorFactory
 from src.tournament import TournamentStructureResolver
+from src.world_ranking import WorldRankingModelConfig, WorldRankingTournamentSimulator
+
+
+class FastTestWorldRankingSimulatorFactory(WorldRankingSimulatorFactory):
+    """Use smaller beams so engine tests cover wiring without rerunning production-size searches."""
+
+    def __init__(self) -> None:
+        super().__init__(use_polymarket_hybrid=False)
+        self.model_config = WorldRankingModelConfig(
+            prediction_group_beam_width=12,
+            prediction_group_max_scenarios=6,
+            prediction_world_beam_width=24,
+            prediction_min_branch_probability=1e-4,
+        )
+
+    def create(
+        self,
+        world_cup_data,
+        team_power_model,
+        pairwise_win_model,
+        match_results=None,
+    ):
+        return WorldRankingTournamentSimulator(
+            world_cup_data=world_cup_data,
+            team_power_model=team_power_model,
+            pairwise_win_model=pairwise_win_model,
+            match_results=match_results,
+            model_config=self.model_config,
+            model_config_path=None,
+        )
+
+
+@pytest.fixture
+def fast_predictor() -> MatchupPredictor:
+    return MatchupPredictor(simulator_factory=FastTestWorldRankingSimulatorFactory())
 
 
 def _resolver() -> TournamentStructureResolver:
@@ -28,8 +63,8 @@ def test_parse_group_slot_covers_winners_runners_up_and_third_place() -> None:
     assert third_place_multi == ({"A", "B", "C"}, "third place")
 
 
-def test_predict_non_numeric_match_id_falls_back_to_baseline() -> None:
-    predictor = MatchupPredictor()
+def test_predict_non_numeric_match_id_falls_back_to_baseline(fast_predictor: MatchupPredictor) -> None:
+    predictor = fast_predictor
     result = predictor.predict("400021525")
 
     assert result.status == "predicted"
@@ -40,8 +75,8 @@ def test_predict_non_numeric_match_id_falls_back_to_baseline() -> None:
     )
 
 
-def test_predict_group_stage_match_has_multiple_candidates() -> None:
-    predictor = MatchupPredictor()
+def test_predict_group_stage_match_has_multiple_candidates(fast_predictor: MatchupPredictor) -> None:
+    predictor = fast_predictor
     result = predictor.predict("1")
 
     assert result.status == "predicted"
@@ -55,8 +90,8 @@ def test_predict_group_stage_match_has_multiple_candidates() -> None:
 
 
 @pytest.mark.parametrize("match_id", ["74", "80", "82", "89", "94", "103", "104"])
-def test_predict_knockout_candidates_respect_rule_space(match_id: str) -> None:
-    predictor = MatchupPredictor()
+def test_predict_knockout_candidates_respect_rule_space(match_id: str, fast_predictor: MatchupPredictor) -> None:
+    predictor = fast_predictor
     result = predictor.predict(match_id)
 
     assert result.status == "predicted"
@@ -71,16 +106,16 @@ def test_predict_knockout_candidates_respect_rule_space(match_id: str) -> None:
         assert "scenario-search simulation" in candidate.reason
 
 
-def test_predict_knockout_candidates_are_probability_like() -> None:
-    predictor = MatchupPredictor()
+def test_predict_knockout_candidates_are_probability_like(fast_predictor: MatchupPredictor) -> None:
+    predictor = fast_predictor
     result = predictor.predict("82")
     total = sum(candidate.score for candidate in result.top_candidates)
     assert 0.95 <= total <= 1.05
     assert result.top_candidates == sorted(result.top_candidates, key=lambda c: c.score, reverse=True)
 
 
-def test_predict_is_deterministic_for_world_ranking_path() -> None:
-    predictor = MatchupPredictor()
+def test_predict_is_deterministic_for_world_ranking_path(fast_predictor: MatchupPredictor) -> None:
+    predictor = fast_predictor
     result_a = predictor.predict("82")
     result_b = predictor.predict("82")
     pairs_a = [(candidate.home_team, candidate.away_team, candidate.score) for candidate in result_a.top_candidates]
