@@ -31,8 +31,8 @@ Integration points:
    - [x] fallback to FIFA ranking when stale/missing
    - [ ] optional weighted blend if both are valid
 5. Add runtime configuration flags:
-   - [ ] strength mode (`fifa`, `market`, `hybrid`)
-   - [ ] refresh interval / cache TTL
+   - [x] strength mode (`fifa`, `market`, `hybrid`)
+   - [x] manual refresh status / cache TTL
 
 Removed from immediate scope for this patch:
 3. Implement `market` strength provider:
@@ -60,9 +60,12 @@ Design actually shipped:
 - The snapshot store persists a last-known-good payload at `data/polymarket_last_snapshot.json`.
 
 Current default behavior:
-- `MatchupPredictor.predict(...)` will use Polymarket odds only if a usable cached snapshot already exists.
-- `MatchupPredictor.refresh_polymarket_snapshot()` must be called explicitly to fetch a new snapshot.
-- This was chosen to protect response latency and avoid UI/API hangs when Polymarket is slow or unstable.
+- `MatchupPredictor.predict(...)` defaults to `market` strength mode and will use Polymarket odds only if a usable cached snapshot already exists.
+- FastAPI and Streamlit startup paths perform a best-effort snapshot refresh so each server start tries to use the most recent market signal.
+- `MatchupPredictor.refresh_polymarket_snapshot()` can still be called explicitly to fetch a new snapshot.
+- Startup refresh failures are logged/reported without blocking later predictions, which protects response latency and avoids UI/API hangs when Polymarket is slow or unstable.
+- `fifa`, `hybrid`, and `market` modes are selectable through `PredictorRuntimeConfig`.
+- `market` mode visibly reports FIFA fallback usage in prediction metadata when market data is missing or fails gates.
 ## Tests
 
 Completed:
@@ -72,8 +75,7 @@ Completed:
 
 Still useful to add:
 4. Fetcher parsing tests against captured Polymarket payload fixtures.
-5. Engine/UI integration coverage for explicit snapshot refresh behavior.
-6. Configuration tests once runtime mode flags and TTL controls exist.
+5. Streamlit/browser-level visual regression coverage for explicit snapshot refresh controls.
 
 ## Fallback Policy Contract
 
@@ -87,8 +89,8 @@ Still useful to add:
 ## Exit Criteria
 
 - [x] Predictor can run using market-driven probabilities with safe fallback behavior.
-- [ ] UI/API expose an intentional refresh/configuration story for Polymarket snapshots.
-- [ ] User-selectable strength modes exist (`fifa`, `hybrid`, optional `market`).
+- [x] UI/API expose an intentional refresh/configuration story for Polymarket snapshots.
+- [x] User-selectable strength modes exist (`fifa`, `hybrid`, optional `market`).
 
 ## Verification (2026-06-02)
 

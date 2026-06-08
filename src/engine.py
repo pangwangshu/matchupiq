@@ -5,13 +5,14 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 try:
     from src.models import MatchupCandidate, PredictionResponse
     from src.polymarket import (
         GatewayPolymarketSnapshotFetcher,
         HybridPairwiseWinModel,
+        PolymarketSnapshotStatus,
         PolymarketSnapshotStore,
     )
     from src.signals import EloStrengthSignal, GroupFormSignal, TravelRestSignal
@@ -29,6 +30,7 @@ except ModuleNotFoundError:
     from polymarket import (
         GatewayPolymarketSnapshotFetcher,
         HybridPairwiseWinModel,
+        PolymarketSnapshotStatus,
         PolymarketSnapshotStore,
     )
     from signals import EloStrengthSignal, GroupFormSignal, TravelRestSignal
@@ -45,6 +47,7 @@ except ModuleNotFoundError:
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
 FIFA_RANKING_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "fifa_men_ranking_static.json"
+StrengthMode = Literal["fifa", "hybrid", "market"]
 
 
 class MatchDataProvider(Protocol):
@@ -128,16 +131,50 @@ class StaticJsonMatchDataProvider:
         return [p["name"] for p in participants if p.get("name")]
 
 
+@dataclass(frozen=True)
+class PredictorRuntimeConfig:
+    """Runtime controls for selecting and gating strength signals."""
+
+    strength_mode: StrengthMode = "market"
+    market_fresh_ttl_seconds: float = 300.0
+    market_serve_stale_ttl_seconds: float = 1800.0
+    max_market_age_seconds: float = 900.0
+    max_market_spread: float = 0.18
+    min_market_liquidity: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.strength_mode not in ("fifa", "hybrid", "market"):
+            raise ValueError(f"Unsupported strength mode: {self.strength_mode}")
+        for field_name in (
+            "market_fresh_ttl_seconds",
+            "market_serve_stale_ttl_seconds",
+            "max_market_age_seconds",
+            "max_market_spread",
+            "min_market_liquidity",
+        ):
+            value = getattr(self, field_name)
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative.")
+
+
 class WorldRankingSimulatorFactory:
     """Creates the default world-ranking simulator stack used by the app."""
 
     def __init__(
         self,
         *,
-        use_polymarket_hybrid: bool = True,
+        config: PredictorRuntimeConfig | None = None,
+        strength_mode: StrengthMode | None = None,
+        use_polymarket_hybrid: bool | None = None,
         polymarket_snapshot_store: PolymarketSnapshotStore | None = None,
     ) -> None:
-        self.use_polymarket_hybrid = use_polymarket_hybrid
+        if config is not None and strength_mode is not None:
+            raise ValueError("Pass either config or strength_mode, not both.")
+        if config is None:
+            if strength_mode is None and use_polymarket_hybrid is not None:
+                strength_mode = "hybrid" if use_polymarket_hybrid else "fifa"
+            config = PredictorRuntimeConfig(strength_mode=strength_mode or "market")
+        self.config = config
         self.polymarket_snapshot_store = polymarket_snapshot_store
 
     def _ensure_polymarket_snapshot_store(
@@ -149,6 +186,8 @@ class WorldRankingSimulatorFactory:
             fetcher = GatewayPolymarketSnapshotFetcher(normalizer=normalizer)
             self.polymarket_snapshot_store = PolymarketSnapshotStore(
                 fetcher=fetcher,
+                fresh_ttl_seconds=self.config.market_fresh_ttl_seconds,
+                serve_stale_ttl_seconds=self.config.market_serve_stale_ttl_seconds,
                 auto_refresh_on_access=False,
             )
         return self.polymarket_snapshot_store
@@ -167,12 +206,16 @@ class WorldRankingSimulatorFactory:
     ) -> PairwiseWinModel:
         """Build the default pairwise model, optionally enabling hybrid market data."""
         fallback = RatingPairwiseWinModel()
-        if not self.use_polymarket_hybrid or not canonical_team_names:
+        if self.config.strength_mode == "fifa" or not canonical_team_names:
             return fallback
 
         return HybridPairwiseWinModel(
             snapshot_store=self._ensure_polymarket_snapshot_store(canonical_team_names),
             fallback=fallback,
+            max_market_age_seconds=self.config.max_market_age_seconds,
+            max_market_spread=self.config.max_market_spread,
+            min_market_liquidity=self.config.min_market_liquidity,
+            mode_label=self.config.strength_mode,
         )
 
     def refresh_polymarket_snapshot(
@@ -183,6 +226,15 @@ class WorldRankingSimulatorFactory:
         store = self._ensure_polymarket_snapshot_store(canonical_team_names)
         store.refresh_now()
         return store
+
+    def polymarket_snapshot_status(
+        self,
+        canonical_team_names: list[str],
+    ) -> PolymarketSnapshotStatus | None:
+        """Return market cache status when the active mode can use Polymarket."""
+        if self.config.strength_mode == "fifa":
+            return None
+        return self._ensure_polymarket_snapshot_store(canonical_team_names).status()
 
     def create(
         self,
@@ -207,9 +259,13 @@ class MatchupPredictor:
         self,
         data_provider: MatchDataProvider | None = None,
         simulator_factory: TournamentSimulatorFactory | None = None,
+        runtime_config: PredictorRuntimeConfig | None = None,
     ) -> None:
         self.data_provider = data_provider or StaticJsonMatchDataProvider()
-        self.simulator_factory = simulator_factory or WorldRankingSimulatorFactory()
+        if simulator_factory is not None and runtime_config is not None:
+            raise ValueError("Pass either simulator_factory or runtime_config, not both.")
+        self.simulator_factory = simulator_factory or WorldRankingSimulatorFactory(config=runtime_config)
+        self.last_signal_status: dict | None = None
         self.group_form = GroupFormSignal()
         self.elo = EloStrengthSignal()
         self.travel_rest = TravelRestSignal()
@@ -362,6 +418,8 @@ class MatchupPredictor:
         pairwise_win_model = self.simulator_factory.create_default_pairwise_win_model(
             canonical_team_names=canonical_team_names,
         )
+        if hasattr(pairwise_win_model, "reset_usage"):
+            pairwise_win_model.reset_usage()
         simulator = self.simulator_factory.create(
             world_cup_data=world_cup_data,
             team_power_model=team_power_model,
@@ -375,20 +433,52 @@ class MatchupPredictor:
         if not predicted:
             return None
 
+        signal_status = self._build_signal_status(
+            world_cup_data=world_cup_data,
+            pairwise_win_model=pairwise_win_model,
+        )
+        self.last_signal_status = signal_status
         out: list[MatchupCandidate] = []
         for home_team, away_team, probability in predicted:
+            reason = (
+                "Predicted via scenario-search simulation "
+                "(group standings + knockout outcome branching)."
+            )
+            if signal_status.get("fallback_visible"):
+                reason = f"{reason} Market mode used FIFA fallback for some unresolved match branches."
             out.append(
                 MatchupCandidate(
                     home_team=home_team,
                     away_team=away_team,
                     score=round(probability, 4),
-                    reason=(
-                        "Predicted via scenario-search simulation "
-                        "(group standings + knockout outcome branching)."
-                    ),
+                    reason=reason,
                 )
             )
         return out
+
+    def _build_signal_status(
+        self,
+        *,
+        world_cup_data: dict,
+        pairwise_win_model: PairwiseWinModel,
+    ) -> dict:
+        if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
+            status: dict = {
+                "strength_mode": self.simulator_factory.config.strength_mode,
+                "market_hits": 0,
+                "fallback_hits": 0,
+                "fallback_reasons": {},
+                "fallback_visible": False,
+            }
+            if hasattr(pairwise_win_model, "usage_summary"):
+                status.update(pairwise_win_model.usage_summary())
+            snapshot_status = self.simulator_factory.polymarket_snapshot_status(
+                self._canonical_team_names(world_cup_data)
+            )
+            if snapshot_status is not None:
+                status["polymarket_snapshot"] = snapshot_status.to_dict()
+            return status
+        return {"strength_mode": "custom"}
 
     def refresh_polymarket_snapshot(self) -> None:
         """Refresh the market snapshot when hybrid predictions are enabled."""
@@ -396,6 +486,15 @@ class MatchupPredictor:
         canonical_team_names = self._canonical_team_names(world_cup_data)
         if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
             self.simulator_factory.refresh_polymarket_snapshot(canonical_team_names)
+
+    def polymarket_snapshot_status(self) -> dict | None:
+        """Return current Polymarket cache state for UI/API status surfaces."""
+        world_cup_data = self._load_world_cup_data()
+        canonical_team_names = self._canonical_team_names(world_cup_data)
+        if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
+            status = self.simulator_factory.polymarket_snapshot_status(canonical_team_names)
+            return None if status is None else status.to_dict()
+        return None
 
     def predict(self, match_id: str) -> PredictionResponse:
         """Return the ranked prediction response for the requested match."""
@@ -408,9 +507,11 @@ class MatchupPredictor:
         if world_ranking_candidates is not None:
             ranked = world_ranking_candidates
         else:
+            self.last_signal_status = {"strength_mode": "baseline"}
             ranked = self._build_baseline_candidates(match_id=match_id, limit=10)
         return PredictionResponse(
             match_id=match_id,
             status="predicted",
             top_candidates=ranked,
+            signal_status=self.last_signal_status,
         )

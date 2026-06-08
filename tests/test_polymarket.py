@@ -202,6 +202,27 @@ def test_snapshot_store_preserves_last_known_good_when_refresh_fails(tmp_path: P
     preserved = store.get_snapshot()
     assert preserved is not None
     assert preserved.market_selections_by_pair[("Mexico", "South Africa")].probabilities.home_win == 0.45
+    status = store.status()
+    assert status.has_snapshot is True
+    assert status.last_refresh_error == "provider unstable"
+
+
+def test_snapshot_store_reports_refresh_error_without_existing_snapshot() -> None:
+    store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher(error=RuntimeError("provider unavailable")),
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+
+    try:
+        store.refresh_now()
+    except RuntimeError:
+        pass
+
+    status = store.status()
+    assert status.has_snapshot is False
+    assert status.last_refresh_attempt_at is not None
+    assert status.last_refresh_error == "provider unavailable"
 
 
 def test_snapshot_store_loads_last_known_good_from_disk(tmp_path: Path) -> None:
@@ -225,3 +246,27 @@ def test_snapshot_store_loads_last_known_good_from_disk(tmp_path: Path) -> None:
 
     assert restored_snapshot is not None
     assert restored_snapshot.market_selections_by_pair[("Mexico", "South Africa")].probabilities.away_win == 0.30
+
+
+def test_market_mode_usage_summary_marks_visible_fallback() -> None:
+    snapshot_store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([]),
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+    fallback = RecordingFallbackPairwiseWinModel()
+    model = HybridPairwiseWinModel(snapshot_store, fallback=fallback, mode_label="market")
+
+    model.group_outcomes(
+        "Mexico",
+        "South Africa",
+        MatchContext(match_number=1, stage="group_stage", date="2026-06-11", group="A"),
+        team_power_model=FixedTeamPowerModel(),
+        model_config=WorldRankingModelConfig(),
+        decisive_band=80.0,
+    )
+
+    summary = model.usage_summary()
+    assert summary["strength_mode"] == "market"
+    assert summary["fallback_visible"] is True
+    assert summary["fallback_reasons"] == {"no_snapshot": 1}

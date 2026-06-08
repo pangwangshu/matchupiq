@@ -2,16 +2,30 @@ from __future__ import annotations
 
 import pytest
 
-from src.engine import MatchDataProvider, MatchupPredictor, WorldRankingSimulatorFactory
+from src.engine import (
+    MatchDataProvider,
+    MatchupPredictor,
+    PredictorRuntimeConfig,
+    WorldRankingSimulatorFactory,
+)
+from src.polymarket import HybridPairwiseWinModel, PolymarketSnapshotStore
 from src.tournament import TournamentStructureResolver
-from src.world_ranking import WorldRankingModelConfig, WorldRankingTournamentSimulator
+from src.world_ranking import RatingPairwiseWinModel, WorldRankingModelConfig, WorldRankingTournamentSimulator
 
 
 class FastTestWorldRankingSimulatorFactory(WorldRankingSimulatorFactory):
     """Use smaller beams so engine tests cover wiring without rerunning production-size searches."""
 
-    def __init__(self) -> None:
-        super().__init__(use_polymarket_hybrid=False)
+    def __init__(
+        self,
+        *,
+        config: PredictorRuntimeConfig | None = None,
+        polymarket_snapshot_store: PolymarketSnapshotStore | None = None,
+    ) -> None:
+        super().__init__(
+            config=config or PredictorRuntimeConfig(strength_mode="fifa"),
+            polymarket_snapshot_store=polymarket_snapshot_store,
+        )
         self.model_config = WorldRankingModelConfig(
             prediction_group_beam_width=12,
             prediction_group_max_scenarios=6,
@@ -156,3 +170,70 @@ def test_build_rule_based_pairs_narrows_with_played_results_state() -> None:
 
     assert pairs
     assert all(home == "Germany" for home, _away in pairs)
+
+
+class ExplodingSnapshotFetcher:
+    calls = 0
+
+    def fetch_snapshot(self):
+        self.calls += 1
+        raise RuntimeError("market should not be fetched")
+
+
+def test_strength_mode_factory_selects_fifa_without_market_access() -> None:
+    fetcher = ExplodingSnapshotFetcher()
+    store = PolymarketSnapshotStore(
+        fetcher=fetcher,
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+    factory = WorldRankingSimulatorFactory(
+        config=PredictorRuntimeConfig(strength_mode="fifa"),
+        polymarket_snapshot_store=store,
+    )
+
+    model = factory.create_default_pairwise_win_model(canonical_team_names=["Mexico", "South Africa"])
+
+    assert isinstance(model, RatingPairwiseWinModel)
+    assert fetcher.calls == 0
+    assert factory.polymarket_snapshot_status(["Mexico", "South Africa"]) is None
+
+
+@pytest.mark.parametrize("mode", ["hybrid", "market"])
+def test_strength_mode_factory_selects_market_backed_pairwise_model(mode: str) -> None:
+    store = PolymarketSnapshotStore(
+        fetcher=ExplodingSnapshotFetcher(),
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+    factory = WorldRankingSimulatorFactory(
+        config=PredictorRuntimeConfig(strength_mode=mode),  # type: ignore[arg-type]
+        polymarket_snapshot_store=store,
+    )
+
+    model = factory.create_default_pairwise_win_model(canonical_team_names=["Mexico", "South Africa"])
+
+    assert isinstance(model, HybridPairwiseWinModel)
+    assert model.mode_label == mode
+
+
+def test_market_mode_prediction_marks_visible_fifa_fallback() -> None:
+    store = PolymarketSnapshotStore(
+        fetcher=ExplodingSnapshotFetcher(),
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+    predictor = MatchupPredictor(
+        simulator_factory=FastTestWorldRankingSimulatorFactory(
+            config=PredictorRuntimeConfig(strength_mode="market"),
+            polymarket_snapshot_store=store,
+        )
+    )
+
+    result = predictor.predict("1")
+
+    assert result.signal_status is not None
+    assert result.signal_status["strength_mode"] == "market"
+    assert result.signal_status["fallback_visible"] is True
+    assert result.signal_status["fallback_hits"] > 0
+    assert "FIFA fallback" in result.top_candidates[0].reason
