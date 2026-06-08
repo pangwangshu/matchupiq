@@ -64,6 +64,7 @@ Current default behavior:
 - FastAPI and Streamlit startup paths perform a best-effort snapshot refresh so each server start tries to use the most recent market signal.
 - `MatchupPredictor.refresh_polymarket_snapshot()` can still be called explicitly to fetch a new snapshot.
 - Startup refresh failures are logged/reported without blocking later predictions, which protects response latency and avoids UI/API hangs when Polymarket is slow or unstable.
+- Empty provider responses are treated as refresh failures and do not overwrite a last-known-good snapshot.
 - `fifa`, `hybrid`, and `market` modes are selectable through `PredictorRuntimeConfig`.
 - `market` mode visibly reports FIFA fallback usage in prediction metadata when market data is missing or fails gates.
 ## Tests
@@ -99,11 +100,10 @@ Verified after implementation:
 - result: `27 passed`
 
 Verified code-path behavior:
-- `src/ui.py` creates `MatchupPredictor()` through `get_predictor()`.
-- That predictor uses the hybrid-capable simulator factory in `src/engine.py`.
-- However, `src/ui.py` does not call `refresh_polymarket_snapshot()`.
-- Therefore the UI will only reflect Polymarket odds when a usable cached snapshot already exists on disk or in memory.
-- If no snapshot is present, the UI still works, but predictions come from deterministic rating fallback.
+- `src/ui.py` creates a mode-aware `MatchupPredictor()` through `get_predictor(...)`.
+- FastAPI lifespan startup and Streamlit predictor construction both perform best-effort Polymarket refresh.
+- The UI also exposes an explicit manual refresh button and snapshot status.
+- If no usable snapshot is present, the UI still works, but predictions come from deterministic rating fallback with visible market-mode fallback metadata.
 
 ## Data Source Validation (2026-05-31)
 
@@ -111,7 +111,7 @@ Selected source: `Polymarket Sports API` via `https://gateway.polymarket.us`
 
 Why this source:
 - Public endpoint access (no API key required for read paths tested)
-- World Cup league slug available (`fifawc`)
+- World Cup league slug available (`fwc`; previously observed as `fifawc`)
 - Match-level event payload includes teams, market sides, bid/ask quotes, and freshness timestamps
 - Supports reliability gates already planned here (spread, freshness, and liquidity/market-depth proxies)
 

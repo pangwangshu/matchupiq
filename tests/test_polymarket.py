@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 from src.polymarket import (
+    GatewayPolymarketSnapshotFetcher,
     HybridPairwiseWinModel,
     PolymarketMarketSelection,
     PolymarketSnapshot,
@@ -130,6 +131,16 @@ def test_hybrid_pairwise_uses_market_for_group_outcomes() -> None:
     assert fallback.group_calls == 0
 
 
+def test_gateway_fetcher_defaults_to_current_world_cup_slug() -> None:
+    from src.team_name_normalization import TeamNameNormalizer
+
+    fetcher = GatewayPolymarketSnapshotFetcher(
+        normalizer=TeamNameNormalizer.build(canonical_names=["Mexico", "South Africa"])
+    )
+
+    assert fetcher.league_slug == "fwc"
+
+
 def test_hybrid_pairwise_falls_back_when_snapshot_missing() -> None:
     snapshot_store = PolymarketSnapshotStore(
         fetcher=StubSnapshotFetcher([]),
@@ -223,6 +234,51 @@ def test_snapshot_store_reports_refresh_error_without_existing_snapshot() -> Non
     assert status.has_snapshot is False
     assert status.last_refresh_attempt_at is not None
     assert status.last_refresh_error == "provider unavailable"
+
+
+def test_snapshot_store_rejects_empty_refresh_without_overwriting_last_good(tmp_path: Path) -> None:
+    good_snapshot = _snapshot(_selection(home_win=0.45, draw=0.30, away_win=0.25))
+    store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([good_snapshot]),
+        cache_path=tmp_path / "polymarket_snapshot.json",
+        auto_refresh_on_access=False,
+    )
+    store.refresh_now()
+    store.fetcher = StubSnapshotFetcher(
+        [
+            PolymarketSnapshot(
+                fetched_at_epoch=time.time(),
+                events_seen=0,
+                market_selections_by_pair={},
+            )
+        ]
+    )
+
+    try:
+        store.refresh_now()
+    except RuntimeError as exc:
+        assert str(exc) == "Polymarket refresh returned no events."
+
+    preserved = store.get_snapshot()
+    assert preserved is not None
+    assert preserved.events_seen == 1
+    assert store.status().last_refresh_error == "Polymarket refresh returned no events."
+
+
+def test_snapshot_store_ignores_empty_persisted_cache(tmp_path: Path) -> None:
+    cache_path = tmp_path / "polymarket_snapshot.json"
+    cache_path.write_text(
+        '{"fetched_at_epoch": 123.0, "events_seen": 0, "market_selections": []}',
+        encoding="utf-8",
+    )
+    store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([]),
+        cache_path=cache_path,
+        auto_refresh_on_access=False,
+    )
+
+    assert store.get_snapshot() is None
+    assert store.status().has_snapshot is False
 
 
 def test_snapshot_store_loads_last_known_good_from_disk(tmp_path: Path) -> None:

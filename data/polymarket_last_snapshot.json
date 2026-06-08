@@ -1,16 +1,16 @@
 {
-  "fetched_at_epoch": 1780464134.7517838,
+  "fetched_at_epoch": 1780961192.5492675,
   "events_seen": 72,
   "market_selections": [
     {
       "home_team": "Algeria",
       "away_team": "Austria",
       "probabilities": {
-        "home_win": 0.35377358490566035,
-        "draw": 0.28301886792452835,
-        "away_win": 0.3632075471698113
+        "home_win": 0.2562814070351759,
+        "draw": 0.30653266331658285,
+        "away_win": 0.43718592964824116
       },
-      "max_spread": 0.22999999999999998,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783821600.0
     },
@@ -18,11 +18,11 @@
       "home_team": "Argentina",
       "away_team": "Algeria",
       "probabilities": {
-        "home_win": 0.693069306930693,
-        "draw": 0.20297029702970298,
-        "away_win": 0.10396039603960397
+        "home_win": 0.691542288557214,
+        "draw": 0.2039800995024876,
+        "away_win": 0.10447761194029853
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1782867600.0
     },
@@ -30,11 +30,11 @@
       "home_team": "Argentina",
       "away_team": "Austria",
       "probabilities": {
-        "home_win": 0.5990338164251208,
-        "draw": 0.23671497584541065,
-        "away_win": 0.1642512077294686
+        "home_win": 0.599009900990099,
+        "draw": 0.2376237623762376,
+        "away_win": 0.16336633663366337
       },
-      "max_spread": 0.040000000000000036,
+      "max_spread": 0.01999999999999999,
       "liquidity": null,
       "updated_at_epoch": 1783357200.0
     },
@@ -42,9 +42,9 @@
       "home_team": "Australia",
       "away_team": "Turkey",
       "probabilities": {
-        "home_win": 0.19402985074626863,
-        "draw": 0.26368159203980096,
-        "away_win": 0.5422885572139303
+        "home_win": 0.18407960199004977,
+        "draw": 0.2537313432835821,
+        "away_win": 0.5621890547263682
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -54,9 +54,9 @@
       "home_team": "Austria",
       "away_team": "Jordan",
       "probabilities": {
-        "home_win": 0.7313432835820897,
-        "draw": 0.17412935323383086,
-        "away_win": 0.09452736318407962
+        "home_win": 0.7386934673366834,
+        "draw": 0.1658291457286432,
+        "away_win": 0.09547738693467336
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -66,8 +66,8 @@
       "home_team": "Belgium",
       "away_team": "Egypt",
       "probabilities": {
-        "home_win": 0.592039800995025,
-        "draw": 0.2338308457711443,
+        "home_win": 0.582089552238806,
+        "draw": 0.2437810945273632,
         "away_win": 0.17412935323383086
       },
       "max_spread": 0.010000000000000009,
@@ -78,11 +78,11 @@
       "home_team": "Belgium",
       "away_team": "Iran",
       "probabilities": {
-        "home_win": 0.6000000000000001,
-        "draw": 0.20888888888888887,
-        "away_win": 0.19111111111111112
+        "home_win": 0.6984924623115578,
+        "draw": 0.19597989949748745,
+        "away_win": 0.1055276381909548
       },
-      "max_spread": 0.19,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783278000.0
     },
@@ -90,11 +90,11 @@
       "home_team": "Bosnia and Herzegovina",
       "away_team": "Qatar",
       "probabilities": {
-        "home_win": 0.5304347826086957,
-        "draw": 0.26521739130434785,
-        "away_win": 0.20434782608695654
+        "home_win": 0.6218905472636816,
+        "draw": 0.2338308457711443,
+        "away_win": 0.14427860696517417
       },
-      "max_spread": 0.22999999999999998,
+      "max_spread": 0.03,
       "liquidity": null,
       "updated_at_epoch": 1783537200.0
     },
@@ -102,11 +102,11 @@
       "home_team": "Brazil",
       "away_team": "Haiti",
       "probabilities": {
-        "home_win": 0.7708333333333334,
-        "draw": 0.11666666666666665,
-        "away_win": 0.11250000000000002
+        "home_win": 0.91,
+        "draw": 0.055,
+        "away_win": 0.035
       },
-      "max_spread": 0.25,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783125000.0
     },
@@ -114,11 +114,11 @@
       "home_team": "Brazil",
       "away_team": "Morocco",
       "probabilities": {
-        "home_win": 0.599009900990099,
-        "draw": 0.24257425742574257,
-        "away_win": 0.15841584158415842
+        "home_win": 0.5879396984924623,
+        "draw": 0.24623115577889446,
+        "away_win": 0.1658291457286432
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1782597600.0
     },
@@ -126,9 +126,9 @@
       "home_team": "Canada",
       "away_team": "Bosnia and Herzegovina",
       "probabilities": {
-        "home_win": 0.5323383084577115,
-        "draw": 0.26368159203980096,
-        "away_win": 0.20398009950248755
+        "home_win": 0.5369458128078818,
+        "draw": 0.2610837438423645,
+        "away_win": 0.2019704433497537
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -138,11 +138,11 @@
       "home_team": "Canada",
       "away_team": "Qatar",
       "probabilities": {
-        "home_win": 0.72636815920398,
-        "draw": 0.18407960199004972,
-        "away_win": 0.08955223880597013
+        "home_win": 0.7412935323383085,
+        "draw": 0.17412935323383086,
+        "away_win": 0.0845771144278607
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783029600.0
     },
@@ -150,11 +150,11 @@
       "home_team": "Cape Verde",
       "away_team": "Saudi Arabia",
       "probabilities": {
-        "home_win": 0.375,
-        "draw": 0.3194444444444444,
-        "away_win": 0.3055555555555555
+        "home_win": 0.36453201970443344,
+        "draw": 0.2857142857142857,
+        "away_win": 0.34975369458128075
       },
-      "max_spread": 0.21000000000000002,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783728000.0
     },
@@ -162,11 +162,11 @@
       "home_team": "Colombia",
       "away_team": "DR Congo",
       "probabilities": {
-        "home_win": 0.6666666666666667,
-        "draw": 0.21890547263681595,
+        "home_win": 0.6616915422885573,
+        "draw": 0.2238805970149254,
         "away_win": 0.11442786069651742
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783476000.0
     },
@@ -174,11 +174,11 @@
       "home_team": "Colombia",
       "away_team": "Portugal",
       "probabilities": {
-        "home_win": 0.2741935483870968,
-        "draw": 0.2741935483870968,
-        "away_win": 0.4516129032258065
+        "home_win": 0.27804878048780485,
+        "draw": 0.27804878048780485,
+        "away_win": 0.4439024390243902
       },
-      "max_spread": 0.25999999999999995,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783812600.0
     },
@@ -186,11 +186,11 @@
       "home_team": "Croatia",
       "away_team": "Ghana",
       "probabilities": {
-        "home_win": 0.49773755656108604,
-        "draw": 0.27601809954751133,
-        "away_win": 0.22624434389140272
+        "home_win": 0.582089552238806,
+        "draw": 0.2537313432835821,
+        "away_win": 0.16417910447761197
       },
-      "max_spread": 0.19999999999999998,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783803600.0
     },
@@ -198,23 +198,35 @@
       "home_team": "Cura\u00e7ao",
       "away_team": "Ivory Coast",
       "probabilities": {
-        "home_win": 0.10050251256281408,
-        "draw": 0.1658291457286432,
-        "away_win": 0.7336683417085427
+        "home_win": 0.06532663316582914,
+        "draw": 0.135678391959799,
+        "away_win": 0.7989949748743718
       },
-      "max_spread": 0.04999999999999999,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783627200.0
     },
     {
       "home_team": "Czech Republic",
+      "away_team": "Mexico",
+      "probabilities": {
+        "home_win": 0.20398009950248755,
+        "draw": 0.26368159203980096,
+        "away_win": 0.5323383084577115
+      },
+      "max_spread": 0.010000000000000009,
+      "liquidity": null,
+      "updated_at_epoch": 1783558800.0
+    },
+    {
+      "home_team": "Czech Republic",
       "away_team": "South Africa",
       "probabilities": {
-        "home_win": 0.4926108374384236,
-        "draw": 0.29064039408866993,
-        "away_win": 0.2167487684729064
+        "home_win": 0.49253731343283574,
+        "draw": 0.2835820895522388,
+        "away_win": 0.22388059701492535
       },
-      "max_spread": 0.03999999999999998,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783008000.0
     },
@@ -222,11 +234,11 @@
       "home_team": "DR Congo",
       "away_team": "Uzbekistan",
       "probabilities": {
-        "home_win": 0.375,
-        "draw": 0.2916666666666667,
-        "away_win": 0.33333333333333337
+        "home_win": 0.4088669950738916,
+        "draw": 0.29064039408867,
+        "away_win": 0.30049261083743845
       },
-      "max_spread": 0.08000000000000002,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783812600.0
     },
@@ -234,11 +246,11 @@
       "home_team": "Ecuador",
       "away_team": "Cura\u00e7ao",
       "probabilities": {
-        "home_win": 0.7969543147208121,
-        "draw": 0.15228426395939088,
-        "away_win": 0.050761421319796954
+        "home_win": 0.8109452736318409,
+        "draw": 0.12437810945273634,
+        "away_win": 0.0646766169154229
       },
-      "max_spread": 0.04000000000000001,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783209600.0
     },
@@ -246,11 +258,11 @@
       "home_team": "Ecuador",
       "away_team": "Germany",
       "probabilities": {
-        "home_win": 0.2142857142857143,
-        "draw": 0.2647058823529412,
-        "away_win": 0.5210084033613446
+        "home_win": 0.1990049751243781,
+        "draw": 0.24378109452736316,
+        "away_win": 0.5572139303482587
       },
-      "max_spread": 0.22999999999999998,
+      "max_spread": 0.03,
       "liquidity": null,
       "updated_at_epoch": 1783627200.0
     },
@@ -258,11 +270,11 @@
       "home_team": "Egypt",
       "away_team": "Iran",
       "probabilities": {
-        "home_win": 0.33596837944664026,
-        "draw": 0.2806324110671936,
-        "away_win": 0.38339920948616596
+        "home_win": 0.4228855721393035,
+        "draw": 0.31343283582089554,
+        "away_win": 0.263681592039801
       },
-      "max_spread": 0.49,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783738800.0
     },
@@ -282,11 +294,11 @@
       "home_team": "England",
       "away_team": "Ghana",
       "probabilities": {
-        "home_win": 0.7129629629629629,
-        "draw": 0.19444444444444445,
-        "away_win": 0.09259259259259259
+        "home_win": 0.7339901477832511,
+        "draw": 0.1625615763546798,
+        "away_win": 0.10344827586206896
       },
-      "max_spread": 0.14,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783454400.0
     },
@@ -294,11 +306,11 @@
       "home_team": "France",
       "away_team": "Iraq",
       "probabilities": {
-        "home_win": 0.8101851851851851,
-        "draw": 0.0787037037037037,
-        "away_win": 0.1111111111111111
+        "home_win": 0.87,
+        "draw": 0.095,
+        "away_win": 0.035
       },
-      "max_spread": 0.18,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783371600.0
     },
@@ -306,23 +318,35 @@
       "home_team": "France",
       "away_team": "Senegal",
       "probabilities": {
-        "home_win": 0.6748768472906403,
-        "draw": 0.2019704433497537,
-        "away_win": 0.1231527093596059
+        "home_win": 0.665,
+        "draw": 0.21000000000000002,
+        "away_win": 0.125
       },
-      "max_spread": 0.010000000000000009,
+      "max_spread": 0.01999999999999999,
       "liquidity": null,
       "updated_at_epoch": 1782846000.0
     },
     {
       "home_team": "Germany",
+      "away_team": "Cura\u00e7ao",
+      "probabilities": {
+        "home_win": 0.9303482587064676,
+        "draw": 0.044776119402985065,
+        "away_win": 0.02487562189054726
+      },
+      "max_spread": 0.010000000000000002,
+      "liquidity": null,
+      "updated_at_epoch": 1782666000.0
+    },
+    {
+      "home_team": "Germany",
       "away_team": "Ivory Coast",
       "probabilities": {
-        "home_win": 0.5805084745762712,
-        "draw": 0.23728813559322032,
-        "away_win": 0.18220338983050846
+        "home_win": 0.6256157635467979,
+        "draw": 0.2019704433497537,
+        "away_win": 0.17241379310344823
       },
-      "max_spread": 0.2,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783195200.0
     },
@@ -330,9 +354,9 @@
       "home_team": "Ghana",
       "away_team": "Panama",
       "probabilities": {
-        "home_win": 0.472636815920398,
+        "home_win": 0.4626865671641791,
         "draw": 0.27363184079601993,
-        "away_win": 0.2537313432835821
+        "away_win": 0.263681592039801
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -342,9 +366,9 @@
       "home_team": "Haiti",
       "away_team": "Scotland",
       "probabilities": {
-        "home_win": 0.13432835820895522,
-        "draw": 0.19402985074626863,
-        "away_win": 0.6716417910447761
+        "home_win": 0.14427860696517417,
+        "draw": 0.2139303482587065,
+        "away_win": 0.6417910447761195
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -354,9 +378,9 @@
       "home_team": "Iran",
       "away_team": "New Zealand",
       "probabilities": {
-        "home_win": 0.49253731343283574,
+        "home_win": 0.5024875621890547,
         "draw": 0.2835820895522388,
-        "away_win": 0.22388059701492535
+        "away_win": 0.21393034825870644
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -378,9 +402,9 @@
       "home_team": "Ivory Coast",
       "away_team": "Ecuador",
       "probabilities": {
-        "home_win": 0.25373134328358204,
+        "home_win": 0.2736318407960199,
         "draw": 0.3333333333333333,
-        "away_win": 0.41293532338308453
+        "away_win": 0.39303482587064675
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -390,11 +414,11 @@
       "home_team": "Japan",
       "away_team": "Sweden",
       "probabilities": {
-        "home_win": 0.4479638009049774,
-        "draw": 0.24434389140271495,
-        "away_win": 0.3076923076923077
+        "home_win": 0.47029702970297027,
+        "draw": 0.26732673267326734,
+        "away_win": 0.2623762376237624
       },
-      "max_spread": 0.22,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783638000.0
     },
@@ -402,11 +426,11 @@
       "home_team": "Jordan",
       "away_team": "Algeria",
       "probabilities": {
-        "home_win": 0.2073732718894009,
-        "draw": 0.2672811059907834,
-        "away_win": 0.5253456221198157
+        "home_win": 0.14572864321608042,
+        "draw": 0.21608040201005024,
+        "away_win": 0.6381909547738693
       },
-      "max_spread": 0.15,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783393200.0
     },
@@ -414,11 +438,11 @@
       "home_team": "Jordan",
       "away_team": "Argentina",
       "probabilities": {
-        "home_win": 0.05445544554455446,
-        "draw": 0.1188118811881188,
-        "away_win": 0.8267326732673267
+        "home_win": 0.05527638190954774,
+        "draw": 0.11557788944723618,
+        "away_win": 0.8291457286432161
       },
-      "max_spread": 0.030000000000000027,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783821600.0
     },
@@ -426,9 +450,9 @@
       "home_team": "Mexico",
       "away_team": "South Africa",
       "probabilities": {
-        "home_win": 0.6748768472906403,
-        "draw": 0.21182266009852213,
-        "away_win": 0.11330049261083741
+        "home_win": 0.691542288557214,
+        "draw": 0.2039800995024876,
+        "away_win": 0.10447761194029853
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -438,11 +462,11 @@
       "home_team": "Mexico",
       "away_team": "South Korea",
       "probabilities": {
-        "home_win": 0.52,
-        "draw": 0.275,
-        "away_win": 0.20500000000000002
+        "home_win": 0.5323383084577115,
+        "draw": 0.26368159203980096,
+        "away_win": 0.20398009950248755
       },
-      "max_spread": 0.040000000000000036,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783040400.0
     },
@@ -450,11 +474,11 @@
       "home_team": "Morocco",
       "away_team": "Haiti",
       "probabilities": {
-        "home_win": 0.755656108597285,
-        "draw": 0.167420814479638,
-        "away_win": 0.07692307692307691
+        "home_win": 0.7313432835820897,
+        "draw": 0.17412935323383086,
+        "away_win": 0.09452736318407962
       },
-      "max_spread": 0.17000000000000004,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783548000.0
     },
@@ -462,9 +486,9 @@
       "home_team": "Netherlands",
       "away_team": "Japan",
       "probabilities": {
-        "home_win": 0.48768472906403937,
-        "draw": 0.2610837438423645,
-        "away_win": 0.25123152709359603
+        "home_win": 0.472636815920398,
+        "draw": 0.263681592039801,
+        "away_win": 0.263681592039801
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -474,11 +498,11 @@
       "home_team": "Netherlands",
       "away_team": "Sweden",
       "probabilities": {
-        "home_win": 0.572093023255814,
-        "draw": 0.22325581395348837,
-        "away_win": 0.20465116279069767
+        "home_win": 0.592039800995025,
+        "draw": 0.2338308457711443,
+        "away_win": 0.17412935323383086
       },
-      "max_spread": 0.15999999999999998,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783184400.0
     },
@@ -486,11 +510,11 @@
       "home_team": "New Zealand",
       "away_team": "Belgium",
       "probabilities": {
-        "home_win": 0.059360730593607296,
-        "draw": 0.21004566210045658,
-        "away_win": 0.730593607305936
+        "home_win": 0.08457711442786067,
+        "draw": 0.1492537313432836,
+        "away_win": 0.7661691542288557
       },
-      "max_spread": 0.2,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783738800.0
     },
@@ -498,11 +522,11 @@
       "home_team": "New Zealand",
       "away_team": "Egypt",
       "probabilities": {
-        "home_win": 0.21186440677966098,
-        "draw": 0.27118644067796605,
-        "away_win": 0.5169491525423728
+        "home_win": 0.196969696969697,
+        "draw": 0.24242424242424243,
+        "away_win": 0.5606060606060607
       },
-      "max_spread": 0.19999999999999998,
+      "max_spread": 0.01999999999999999,
       "liquidity": null,
       "updated_at_epoch": 1783299600.0
     },
@@ -510,11 +534,11 @@
       "home_team": "Norway",
       "away_team": "France",
       "probabilities": {
-        "home_win": 0.208955223880597,
-        "draw": 0.26368159203980096,
-        "away_win": 0.5273631840796019
+        "home_win": 0.21182266009852213,
+        "draw": 0.2610837438423645,
+        "away_win": 0.5270935960591132
       },
-      "max_spread": 0.030000000000000027,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783710000.0
     },
@@ -522,11 +546,11 @@
       "home_team": "Norway",
       "away_team": "Senegal",
       "probabilities": {
-        "home_win": 0.4227272727272727,
-        "draw": 0.24545454545454545,
-        "away_win": 0.3318181818181818
+        "home_win": 0.45273631840796025,
+        "draw": 0.263681592039801,
+        "away_win": 0.28358208955223885
       },
-      "max_spread": 0.20999999999999996,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783382400.0
     },
@@ -534,11 +558,11 @@
       "home_team": "Panama",
       "away_team": "Croatia",
       "probabilities": {
-        "home_win": 0.1636363636363636,
-        "draw": 0.2545454545454546,
-        "away_win": 0.5818181818181818
+        "home_win": 0.12376237623762376,
+        "draw": 0.2277227722772277,
+        "away_win": 0.6485148514851485
       },
-      "max_spread": 0.16,
+      "max_spread": 0.01999999999999999,
       "liquidity": null,
       "updated_at_epoch": 1783465200.0
     },
@@ -546,11 +570,11 @@
       "home_team": "Panama",
       "away_team": "England",
       "probabilities": {
-        "home_win": 0.05445544554455446,
-        "draw": 0.14851485148514854,
-        "away_win": 0.797029702970297
+        "home_win": 0.10447761194029853,
+        "draw": 0.14427860696517417,
+        "away_win": 0.7512437810945275
       },
-      "max_spread": 0.10999999999999999,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783803600.0
     },
@@ -558,11 +582,11 @@
       "home_team": "Paraguay",
       "away_team": "Australia",
       "probabilities": {
-        "home_win": 0.4321608040201005,
-        "draw": 0.3015075376884422,
-        "away_win": 0.2663316582914573
+        "home_win": 0.43137254901960786,
+        "draw": 0.29901960784313725,
+        "away_win": 0.26960784313725494
       },
-      "max_spread": 0.030000000000000027,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783648800.0
     },
@@ -570,8 +594,8 @@
       "home_team": "Portugal",
       "away_team": "DR Congo",
       "probabilities": {
-        "home_win": 0.7711442786069651,
-        "draw": 0.15422885572139303,
+        "home_win": 0.7611940298507462,
+        "draw": 0.16417910447761194,
         "away_win": 0.0746268656716418
       },
       "max_spread": 0.010000000000000009,
@@ -582,11 +606,11 @@
       "home_team": "Portugal",
       "away_team": "Uzbekistan",
       "probabilities": {
-        "home_win": 0.7777777777777778,
-        "draw": 0.125,
-        "away_win": 0.09722222222222222
+        "home_win": 0.7843137254901961,
+        "draw": 0.14215686274509806,
+        "away_win": 0.0735294117647059
       },
-      "max_spread": 0.16000000000000003,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783443600.0
     },
@@ -594,11 +618,11 @@
       "home_team": "Qatar",
       "away_team": "Switzerland",
       "probabilities": {
-        "home_win": 0.060000000000000005,
-        "draw": 0.14500000000000002,
-        "away_win": 0.795
+        "home_win": 0.06467661691542288,
+        "draw": 0.13432835820895522,
+        "away_win": 0.8009950248756218
       },
-      "max_spread": 0.020000000000000004,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1782586800.0
     },
@@ -606,9 +630,9 @@
       "home_team": "Saudi Arabia",
       "away_team": "Uruguay",
       "probabilities": {
-        "home_win": 0.12562814070351758,
-        "draw": 0.21608040201005024,
-        "away_win": 0.6582914572864322
+        "home_win": 0.12437810945273631,
+        "draw": 0.20398009950248755,
+        "away_win": 0.6716417910447761
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -618,11 +642,11 @@
       "home_team": "Scotland",
       "away_team": "Brazil",
       "probabilities": {
-        "home_win": 0.11274509803921567,
-        "draw": 0.19607843137254902,
-        "away_win": 0.6911764705882353
+        "home_win": 0.1527093596059113,
+        "draw": 0.1921182266009852,
+        "away_win": 0.6551724137931034
       },
-      "max_spread": 0.01999999999999999,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783548000.0
     },
@@ -630,11 +654,11 @@
       "home_team": "Scotland",
       "away_team": "Morocco",
       "probabilities": {
-        "home_win": 0.21890547263681595,
-        "draw": 0.28855721393034833,
+        "home_win": 0.2238805970149254,
+        "draw": 0.28358208955223885,
         "away_win": 0.49253731343283585
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783116000.0
     },
@@ -642,11 +666,11 @@
       "home_team": "Senegal",
       "away_team": "Iraq",
       "probabilities": {
-        "home_win": 0.58008658008658,
-        "draw": 0.25108225108225113,
-        "away_win": 0.16883116883116883
+        "home_win": 0.6831683168316831,
+        "draw": 0.20297029702970298,
+        "away_win": 0.11386138613861385
       },
-      "max_spread": 0.22000000000000003,
+      "max_spread": 0.019999999999999907,
       "liquidity": null,
       "updated_at_epoch": 1783710000.0
     },
@@ -654,11 +678,11 @@
       "home_team": "South Africa",
       "away_team": "South Korea",
       "probabilities": {
-        "home_win": 0.2180094786729858,
-        "draw": 0.3222748815165877,
-        "away_win": 0.45971563981042657
+        "home_win": 0.23039215686274508,
+        "draw": 0.27450980392156865,
+        "away_win": 0.4950980392156863
       },
-      "max_spread": 0.2,
+      "max_spread": 0.019999999999999962,
       "liquidity": null,
       "updated_at_epoch": 1783558800.0
     },
@@ -666,9 +690,9 @@
       "home_team": "South Korea",
       "away_team": "Czech Republic",
       "probabilities": {
-        "home_win": 0.36318407960199006,
+        "home_win": 0.373134328358209,
         "draw": 0.3034825870646766,
-        "away_win": 0.33333333333333337
+        "away_win": 0.32338308457711445
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -678,11 +702,11 @@
       "home_team": "Spain",
       "away_team": "Cape Verde",
       "probabilities": {
-        "home_win": 0.8483412322274883,
-        "draw": 0.06161137440758294,
-        "away_win": 0.09004739336492891
+        "home_win": 0.9004975124378111,
+        "draw": 0.0646766169154229,
+        "away_win": 0.03482587064676618
       },
-      "max_spread": 0.13,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1782748800.0
     },
@@ -690,11 +714,11 @@
       "home_team": "Spain",
       "away_team": "Saudi Arabia",
       "probabilities": {
-        "home_win": 0.8750000000000001,
-        "draw": 0.08173076923076925,
-        "away_win": 0.043269230769230775
+        "home_win": 0.8894472361809045,
+        "draw": 0.07537688442211056,
+        "away_win": 0.03517587939698493
       },
-      "max_spread": 0.09999999999999998,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783267200.0
     },
@@ -702,11 +726,11 @@
       "home_team": "Sweden",
       "away_team": "Tunisia",
       "probabilities": {
-        "home_win": 0.49253731343283574,
-        "draw": 0.2835820895522388,
-        "away_win": 0.22388059701492535
+        "home_win": 0.5074626865671641,
+        "draw": 0.27860696517412936,
+        "away_win": 0.21393034825870644
       },
-      "max_spread": 0.010000000000000009,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1782698400.0
     },
@@ -714,11 +738,11 @@
       "home_team": "Switzerland",
       "away_team": "Bosnia and Herzegovina",
       "probabilities": {
-        "home_win": 0.5903083700440528,
-        "draw": 0.21145374449339205,
-        "away_win": 0.19823788546255508
+        "home_win": 0.5979899497487436,
+        "draw": 0.23618090452261306,
+        "away_win": 0.1658291457286432
       },
-      "max_spread": 0.19,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783018800.0
     },
@@ -726,11 +750,11 @@
       "home_team": "Switzerland",
       "away_team": "Canada",
       "probabilities": {
-        "home_win": 0.4297520661157025,
-        "draw": 0.28512396694214875,
-        "away_win": 0.2851239669421488
+        "home_win": 0.445,
+        "draw": 0.28500000000000003,
+        "away_win": 0.27
       },
-      "max_spread": 0.23,
+      "max_spread": 0.020000000000000018,
       "liquidity": null,
       "updated_at_epoch": 1783537200.0
     },
@@ -738,11 +762,11 @@
       "home_team": "Tunisia",
       "away_team": "Japan",
       "probabilities": {
-        "home_win": 0.1940298507462687,
-        "draw": 0.2462686567164179,
-        "away_win": 0.5597014925373135
+        "home_win": 0.17587939698492458,
+        "draw": 0.2663316582914573,
+        "away_win": 0.5577889447236181
       },
-      "max_spread": 0.41999999999999993,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783224000.0
     },
@@ -750,11 +774,11 @@
       "home_team": "Tunisia",
       "away_team": "Netherlands",
       "probabilities": {
-        "home_win": 0.16037735849056603,
-        "draw": 0.19339622641509435,
-        "away_win": 0.6462264150943396
+        "home_win": 0.1330049261083744,
+        "draw": 0.21182266009852213,
+        "away_win": 0.6551724137931034
       },
-      "max_spread": 0.12000000000000001,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783638000.0
     },
@@ -762,9 +786,9 @@
       "home_team": "Turkey",
       "away_team": "Paraguay",
       "probabilities": {
-        "home_win": 0.42364532019704426,
-        "draw": 0.3004926108374384,
-        "away_win": 0.27586206896551724
+        "home_win": 0.43,
+        "draw": 0.295,
+        "away_win": 0.275
       },
       "max_spread": 0.020000000000000018,
       "liquidity": null,
@@ -774,11 +798,11 @@
       "home_team": "Turkey",
       "away_team": "United States",
       "probabilities": {
-        "home_win": 0.3465346534653465,
-        "draw": 0.27722772277227725,
-        "away_win": 0.37623762376237624
+        "home_win": 0.3596059113300492,
+        "draw": 0.270935960591133,
+        "away_win": 0.36945812807881767
       },
-      "max_spread": 0.020000000000000018,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783648800.0
     },
@@ -786,11 +810,11 @@
       "home_team": "United States",
       "away_team": "Australia",
       "probabilities": {
-        "home_win": 0.5517241379310345,
-        "draw": 0.24137931034482754,
-        "away_win": 0.20689655172413793
+        "home_win": 0.5544554455445545,
+        "draw": 0.24257425742574257,
+        "away_win": 0.20297029702970298
       },
-      "max_spread": 0.01999999999999999,
+      "max_spread": 0.019999999999999907,
       "liquidity": null,
       "updated_at_epoch": 1783105200.0
     },
@@ -798,9 +822,9 @@
       "home_team": "United States",
       "away_team": "Paraguay",
       "probabilities": {
-        "home_win": 0.48743718592964824,
-        "draw": 0.2763819095477387,
-        "away_win": 0.23618090452261306
+        "home_win": 0.48768472906403937,
+        "draw": 0.28078817733990147,
+        "away_win": 0.23152709359605908
       },
       "max_spread": 0.010000000000000009,
       "liquidity": null,
@@ -810,11 +834,11 @@
       "home_team": "Uruguay",
       "away_team": "Cape Verde",
       "probabilities": {
-        "home_win": 0.5781249999999999,
-        "draw": 0.21484374999999997,
-        "away_win": 0.20703124999999997
+        "home_win": 0.681592039800995,
+        "draw": 0.20398009950248755,
+        "away_win": 0.11442786069651739
       },
-      "max_spread": 0.35,
+      "max_spread": 0.009999999999999995,
       "liquidity": null,
       "updated_at_epoch": 1783288800.0
     },
@@ -822,11 +846,11 @@
       "home_team": "Uruguay",
       "away_team": "Spain",
       "probabilities": {
-        "home_win": 0.21317829457364343,
-        "draw": 0.24031007751937983,
-        "away_win": 0.5465116279069768
+        "home_win": 0.1804878048780488,
+        "draw": 0.23902439024390246,
+        "away_win": 0.5804878048780489
       },
-      "max_spread": 0.2899999999999999,
+      "max_spread": 0.010000000000000009,
       "liquidity": null,
       "updated_at_epoch": 1783728000.0
     },

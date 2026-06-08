@@ -174,7 +174,7 @@ class GatewayPolymarketSnapshotFetcher:
         self,
         normalizer: TeamNameNormalizer,
         *,
-        league_slug: str = "fifawc",
+        league_slug: str = "fwc",
         page_size: int = 20,
         request_timeout_seconds: float = 3.0,
         max_retries: int = 2,
@@ -421,9 +421,18 @@ class PolymarketSnapshotStore:
         self._lock = threading.RLock()
         self._max_refresh_workers = max_refresh_workers
         self._refresh_executor: ThreadPoolExecutor | None = None
-        self._entry: SnapshotCacheEntry | None = self._load_cache_entry()
         self._last_refresh_attempt_at: float | None = None
         self._last_refresh_error: str | None = None
+        self._entry: SnapshotCacheEntry | None = self._load_cache_entry()
+
+    def _snapshot_has_market_data(self, snapshot: PolymarketSnapshot) -> bool:
+        return snapshot.events_seen > 0 and bool(snapshot.market_selections_by_pair)
+
+    def _validate_refresh_snapshot(self, snapshot: PolymarketSnapshot) -> None:
+        if snapshot.events_seen <= 0:
+            raise RuntimeError("Polymarket refresh returned no events.")
+        if not snapshot.market_selections_by_pair:
+            raise RuntimeError("Polymarket refresh returned no usable market selections.")
 
     def _load_cache_entry(self) -> SnapshotCacheEntry | None:
         if self.cache_path is None or not self.cache_path.exists():
@@ -431,6 +440,8 @@ class PolymarketSnapshotStore:
         try:
             payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
             snapshot = PolymarketSnapshot.from_dict(payload)
+            if not self._snapshot_has_market_data(snapshot):
+                return None
         except Exception:
             logger.exception("polymarket_cache_load_failed path=%s", self.cache_path)
             return None
@@ -483,6 +494,7 @@ class PolymarketSnapshotStore:
 
         try:
             snapshot = self.fetcher.fetch_snapshot()
+            self._validate_refresh_snapshot(snapshot)
         except Exception as exc:
             with self._lock:
                 self._last_refresh_error = str(exc)
@@ -530,12 +542,13 @@ class PolymarketSnapshotStore:
                     last_refresh_attempt_at=self._last_refresh_attempt_at,
                     last_refresh_error=self._last_refresh_error,
                 )
+            has_market_data = self._snapshot_has_market_data(entry.snapshot)
             return PolymarketSnapshotStatus(
-                has_snapshot=True,
-                is_fresh=entry.fresh_until_monotonic > now,
-                fetched_at_epoch=entry.snapshot.fetched_at_epoch,
-                events_seen=entry.snapshot.events_seen,
-                market_count=len(entry.snapshot.market_selections_by_pair),
+                has_snapshot=has_market_data,
+                is_fresh=has_market_data and entry.fresh_until_monotonic > now,
+                fetched_at_epoch=entry.snapshot.fetched_at_epoch if has_market_data else None,
+                events_seen=entry.snapshot.events_seen if has_market_data else 0,
+                market_count=len(entry.snapshot.market_selections_by_pair) if has_market_data else 0,
                 fresh_ttl_seconds=self.fresh_ttl_seconds,
                 serve_stale_ttl_seconds=self.serve_stale_ttl_seconds,
                 refresh_in_flight=entry.refresh_in_flight,
@@ -583,10 +596,12 @@ class PolymarketSnapshotStore:
 
             try:
                 snapshot = future.result()
+                self._validate_refresh_snapshot(snapshot)
             except Exception as exc:
                 entry.refresh_in_flight = False
                 entry.last_refresh_error = str(exc)
-                if not entry.snapshot.market_selections_by_pair:
+                self._last_refresh_error = str(exc)
+                if not self._snapshot_has_market_data(entry.snapshot):
                     self._entry = None
                 logger.exception("polymarket_refresh_failed")
                 return
