@@ -16,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 from src.team_name_normalization import TeamNameNormalizer
 
 WORLD_CUP_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
-POLYMARKET_WORLD_CUP_LEAGUE = "fifawc"
+POLYMARKET_WORLD_CUP_LEAGUE = "fwc"
 PAGE_SIZE = 20
 HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; which-matchup/phase-d-source-validation)",

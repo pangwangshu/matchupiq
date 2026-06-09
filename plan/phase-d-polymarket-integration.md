@@ -1,6 +1,6 @@
 # Phase D - Polymarket Signal Integration
 
-Status: In Progress
+Status: Complete for current exit criteria; follow-up hardening remains
 
 ## Goal
 
@@ -29,14 +29,14 @@ Integration points:
 4. Implement `hybrid` provider:
    - [x] market-first when confidence gates pass
    - [x] fallback to FIFA ranking when stale/missing
-   - [ ] optional weighted blend if both are valid
+   - [~] optional weighted blend if both are valid (deferred; current design uses market-first with deterministic fallback)
 5. Add runtime configuration flags:
    - [x] strength mode (`fifa`, `market`, `hybrid`)
    - [x] manual refresh status / cache TTL
 
 Removed from immediate scope for this patch:
-3. Implement `market` strength provider:
-   - deferred; current production path is `hybrid` with deterministic rating fallback
+3. Implement strict hard-fail `market` strength provider:
+   - deferred; current `market` mode is market-first with visible deterministic FIFA fallback
 
 ## Implementation Snapshot (2026-06-02)
 
@@ -192,8 +192,8 @@ Current interpretation:
 - This does not currently look like a deterministic bug in local code.
 - Treat provider `500` responses as recoverable upstream instability and design ingestion accordingly.
 
-Follow-up for next implementation step:
-- expose a deliberate refresh trigger in UI/API or app startup path
-- add runtime configuration for mode selection and TTL thresholds
-- decide whether a pure `market` mode is still desired, or whether `hybrid` should remain the only market-backed production path
+Remaining follow-up hardening:
 - add payload-fixture tests for fetcher/parser compatibility against real Polymarket responses
+- add Streamlit/browser-level visual regression coverage for refresh/status controls
+- decide later whether optional weighted blending is worth adding alongside market-first fallback
+- decide later whether a strict hard-fail market-only mode is useful
