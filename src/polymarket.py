@@ -174,7 +174,7 @@ class GatewayPolymarketSnapshotFetcher:
         self,
         normalizer: TeamNameNormalizer,
         *,
-        league_slug: str = "fifawc",
+        league_slug: str = "fwc",
         page_size: int = 20,
         request_timeout_seconds: float = 3.0,
         max_retries: int = 2,
@@ -366,6 +366,36 @@ class SnapshotCacheEntry:
     last_refresh_error: str | None = None
 
 
+@dataclass(frozen=True)
+class PolymarketSnapshotStatus:
+    """User-facing cache and refresh state for the current market snapshot."""
+
+    has_snapshot: bool
+    is_fresh: bool
+    fetched_at_epoch: float | None
+    events_seen: int
+    market_count: int
+    fresh_ttl_seconds: float
+    serve_stale_ttl_seconds: float
+    refresh_in_flight: bool
+    last_refresh_attempt_at: float | None
+    last_refresh_error: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "has_snapshot": self.has_snapshot,
+            "is_fresh": self.is_fresh,
+            "fetched_at_epoch": self.fetched_at_epoch,
+            "events_seen": self.events_seen,
+            "market_count": self.market_count,
+            "fresh_ttl_seconds": self.fresh_ttl_seconds,
+            "serve_stale_ttl_seconds": self.serve_stale_ttl_seconds,
+            "refresh_in_flight": self.refresh_in_flight,
+            "last_refresh_attempt_at": self.last_refresh_attempt_at,
+            "last_refresh_error": self.last_refresh_error,
+        }
+
+
 class PolymarketSnapshotStore:
     """Caches market snapshots with stale-while-refresh semantics."""
 
@@ -391,7 +421,18 @@ class PolymarketSnapshotStore:
         self._lock = threading.RLock()
         self._max_refresh_workers = max_refresh_workers
         self._refresh_executor: ThreadPoolExecutor | None = None
+        self._last_refresh_attempt_at: float | None = None
+        self._last_refresh_error: str | None = None
         self._entry: SnapshotCacheEntry | None = self._load_cache_entry()
+
+    def _snapshot_has_market_data(self, snapshot: PolymarketSnapshot) -> bool:
+        return snapshot.events_seen > 0 and bool(snapshot.market_selections_by_pair)
+
+    def _validate_refresh_snapshot(self, snapshot: PolymarketSnapshot) -> None:
+        if snapshot.events_seen <= 0:
+            raise RuntimeError("Polymarket refresh returned no events.")
+        if not snapshot.market_selections_by_pair:
+            raise RuntimeError("Polymarket refresh returned no usable market selections.")
 
     def _load_cache_entry(self) -> SnapshotCacheEntry | None:
         if self.cache_path is None or not self.cache_path.exists():
@@ -399,6 +440,8 @@ class PolymarketSnapshotStore:
         try:
             payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
             snapshot = PolymarketSnapshot.from_dict(payload)
+            if not self._snapshot_has_market_data(snapshot):
+                return None
         except Exception:
             logger.exception("polymarket_cache_load_failed path=%s", self.cache_path)
             return None
@@ -441,13 +484,34 @@ class PolymarketSnapshotStore:
 
     def refresh_now(self) -> PolymarketSnapshot:
         """Fetch and store a fresh snapshot immediately in the current thread."""
-        snapshot = self.fetcher.fetch_snapshot()
         now = self.clock()
         with self._lock:
+            self._last_refresh_attempt_at = now
+            self._last_refresh_error = None
+            if self._entry is not None:
+                self._entry.last_refresh_attempt_at = now
+                self._entry.last_refresh_error = None
+
+        try:
+            snapshot = self.fetcher.fetch_snapshot()
+            self._validate_refresh_snapshot(snapshot)
+        except Exception as exc:
+            with self._lock:
+                self._last_refresh_error = str(exc)
+                if self._entry is not None:
+                    self._entry.last_refresh_error = str(exc)
+                    self._entry.refresh_in_flight = False
+            raise
+
+        now = self.clock()
+        with self._lock:
+            self._last_refresh_attempt_at = now
+            self._last_refresh_error = None
             self._entry = SnapshotCacheEntry(
                 snapshot=snapshot,
                 fresh_until_monotonic=now + self.fresh_ttl_seconds,
                 serve_until_monotonic=now + self.serve_stale_ttl_seconds,
+                last_refresh_attempt_at=now,
             )
             self._store_snapshot(snapshot)
         return snapshot
@@ -456,7 +520,41 @@ class PolymarketSnapshotStore:
     def last_refresh_error(self) -> str | None:
         """Return the most recent background refresh error, if any."""
         with self._lock:
-            return None if self._entry is None else self._entry.last_refresh_error
+            if self._entry is not None and self._entry.last_refresh_error is not None:
+                return self._entry.last_refresh_error
+            return self._last_refresh_error
+
+    def status(self) -> PolymarketSnapshotStatus:
+        """Return a serializable view of cache freshness and refresh state."""
+        now = self.clock()
+        with self._lock:
+            entry = self._entry
+            if entry is None:
+                return PolymarketSnapshotStatus(
+                    has_snapshot=False,
+                    is_fresh=False,
+                    fetched_at_epoch=None,
+                    events_seen=0,
+                    market_count=0,
+                    fresh_ttl_seconds=self.fresh_ttl_seconds,
+                    serve_stale_ttl_seconds=self.serve_stale_ttl_seconds,
+                    refresh_in_flight=False,
+                    last_refresh_attempt_at=self._last_refresh_attempt_at,
+                    last_refresh_error=self._last_refresh_error,
+                )
+            has_market_data = self._snapshot_has_market_data(entry.snapshot)
+            return PolymarketSnapshotStatus(
+                has_snapshot=has_market_data,
+                is_fresh=has_market_data and entry.fresh_until_monotonic > now,
+                fetched_at_epoch=entry.snapshot.fetched_at_epoch if has_market_data else None,
+                events_seen=entry.snapshot.events_seen if has_market_data else 0,
+                market_count=len(entry.snapshot.market_selections_by_pair) if has_market_data else 0,
+                fresh_ttl_seconds=self.fresh_ttl_seconds,
+                serve_stale_ttl_seconds=self.serve_stale_ttl_seconds,
+                refresh_in_flight=entry.refresh_in_flight,
+                last_refresh_attempt_at=entry.last_refresh_attempt_at or self._last_refresh_attempt_at,
+                last_refresh_error=entry.last_refresh_error or self._last_refresh_error,
+            )
 
     def _maybe_schedule_refresh_locked(self, now: float) -> None:
         entry = self._entry
@@ -498,10 +596,12 @@ class PolymarketSnapshotStore:
 
             try:
                 snapshot = future.result()
+                self._validate_refresh_snapshot(snapshot)
             except Exception as exc:
                 entry.refresh_in_flight = False
                 entry.last_refresh_error = str(exc)
-                if not entry.snapshot.market_selections_by_pair:
+                self._last_refresh_error = str(exc)
+                if not self._snapshot_has_market_data(entry.snapshot):
                     self._entry = None
                 logger.exception("polymarket_refresh_failed")
                 return
@@ -528,14 +628,33 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         max_market_age_seconds: float = 900.0,
         max_market_spread: float = 0.18,
         min_market_liquidity: float = 0.0,
+        mode_label: str = "hybrid",
     ) -> None:
         self.snapshot_store = snapshot_store
         self.fallback = fallback or RatingPairwiseWinModel()
         self.max_market_age_seconds = max_market_age_seconds
         self.max_market_spread = max_market_spread
         self.min_market_liquidity = min_market_liquidity
+        self.mode_label = mode_label
         self.market_hits = 0
         self.fallback_hits = 0
+        self.fallback_reasons: dict[str, int] = {}
+
+    def reset_usage(self) -> None:
+        """Clear per-prediction usage counters."""
+        self.market_hits = 0
+        self.fallback_hits = 0
+        self.fallback_reasons = {}
+
+    def usage_summary(self) -> dict[str, Any]:
+        """Return user-facing source usage metadata for the latest prediction."""
+        return {
+            "strength_mode": self.mode_label,
+            "market_hits": self.market_hits,
+            "fallback_hits": self.fallback_hits,
+            "fallback_reasons": dict(sorted(self.fallback_reasons.items())),
+            "fallback_visible": self.mode_label == "market" and self.fallback_hits > 0,
+        }
 
     def _record_fallback(
         self,
@@ -547,6 +666,7 @@ class HybridPairwiseWinModel(PairwiseWinModel):
         away_team: str,
     ) -> None:
         self.fallback_hits += 1
+        self.fallback_reasons[reason] = self.fallback_reasons.get(reason, 0) + 1
         logger.info(
             "polymarket_%s_fallback reason=%s match_number=%s home=%s away=%s",
             mode,

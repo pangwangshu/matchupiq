@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,3 +21,4 @@ class PredictionResponse(BaseModel):
     status: Literal["confirmed", "predicted"]
     confirmed_matchup: MatchupCandidate | None = None
     top_candidates: list[MatchupCandidate] = Field(default_factory=list)
+    signal_status: dict[str, Any] | None = None
