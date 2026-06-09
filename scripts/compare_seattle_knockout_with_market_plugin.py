@@ -39,7 +39,7 @@ except ModuleNotFoundError:
         WorldRankingTournamentSimulator,
     )
 
-LEAGUE_SLUG = "fifawc"
+LEAGUE_SLUG = "fwc"
 PAGE_SIZE = 20
 TARGET_MATCHES = (82, 94)
 
