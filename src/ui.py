@@ -20,6 +20,8 @@ except ModuleNotFoundError:
 
 MATCHUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
+DEFAULT_STRENGTH_MODE = "market"
+DEFAULT_MARKET_TTL_SECONDS = 900.0
 FLAG_IMAGE_STYLE = "width:30px; height:20px; object-fit:cover; border-radius:6px;"
 MATCHUP_ROW_STYLE = (
     "display:grid; grid-template-columns: minmax(0, 1fr) 40px 56px 40px minmax(0, 1fr); "
@@ -29,6 +31,63 @@ TEAM_NAME_STYLE = (
     "font-weight:700; white-space:normal; overflow-wrap:anywhere; line-height:1.2;"
 )
 VS_STYLE = "text-align:center; font-weight:800; letter-spacing:0.5px;"
+DATA_SOURCE_STYLE = """
+<style>
+  .data-source-panel {
+    margin-top: 1.35rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(128, 128, 128, 0.24);
+    color: rgba(250, 250, 250, 0.72);
+  }
+  .data-source-title {
+    margin-bottom: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(250, 250, 250, 0.62);
+  }
+  .data-source-grid {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .data-source-row {
+    display: grid;
+    grid-template-columns: minmax(112px, 0.34fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: baseline;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+  .data-source-label {
+    font-weight: 700;
+    color: rgba(250, 250, 250, 0.86);
+  }
+  .data-source-detail {
+    color: rgba(250, 250, 250, 0.64);
+  }
+  @media (prefers-color-scheme: light) {
+    .data-source-panel {
+      color: rgba(49, 51, 63, 0.72);
+    }
+    .data-source-title {
+      color: rgba(49, 51, 63, 0.62);
+    }
+    .data-source-label {
+      color: rgba(49, 51, 63, 0.88);
+    }
+    .data-source-detail {
+      color: rgba(49, 51, 63, 0.66);
+    }
+  }
+  @media (max-width: 640px) {
+    .data-source-row {
+      grid-template-columns: 1fr;
+      gap: 0.05rem;
+    }
+  }
+</style>
+"""
 logger = logging.getLogger(__name__)
 
 
@@ -103,6 +162,206 @@ def format_epoch(epoch: float | None) -> str:
     if epoch is None:
         return "Never"
     return datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def live_score_status_text(predictor: MatchupPredictor) -> tuple[str, str | None]:
+    score_status = predictor.live_score_status()
+    score_freshness = "available" if score_status.get("has_snapshot") else "missing"
+    return (
+        (
+            f"Live scores: {score_freshness}; "
+            f"{score_status.get('matched_count', 0)} matched, "
+            f"{score_status.get('completed_count', 0)} completed, "
+            f"{score_status.get('unmatched_count', 0)} unmatched; "
+            f"last refresh {format_epoch(score_status.get('fetched_at_epoch'))}."
+        ),
+        score_status.get("last_refresh_error"),
+    )
+
+
+def live_score_status_parts(predictor: MatchupPredictor) -> tuple[str, str, str | None]:
+    score_status = predictor.live_score_status()
+    score_freshness = "available" if score_status.get("has_snapshot") else "missing"
+    return (
+        "Live scores",
+        (
+            f"{score_freshness}; {score_status.get('matched_count', 0)} matched, "
+            f"{score_status.get('completed_count', 0)} completed, "
+            f"{score_status.get('unmatched_count', 0)} unmatched; "
+            f"last refresh {format_epoch(score_status.get('fetched_at_epoch'))}"
+        ),
+        score_status.get("last_refresh_error"),
+    )
+
+
+def polymarket_status_text(predictor: MatchupPredictor) -> tuple[str | None, str | None]:
+    snapshot_status = predictor.polymarket_snapshot_status()
+    if snapshot_status is None:
+        return None, None
+
+    freshness = "fresh" if snapshot_status.get("is_fresh") else "stale"
+    if not snapshot_status.get("has_snapshot"):
+        freshness = "missing"
+    return (
+        (
+            f"Polymarket snapshot: {freshness}; "
+            f"{snapshot_status.get('market_count', 0)} markets from "
+            f"{snapshot_status.get('events_seen', 0)} events; "
+            f"last refresh {format_epoch(snapshot_status.get('fetched_at_epoch'))}."
+        ),
+        snapshot_status.get("last_refresh_error"),
+    )
+
+
+def polymarket_status_parts(predictor: MatchupPredictor) -> tuple[str, str, str | None] | None:
+    snapshot_status = predictor.polymarket_snapshot_status()
+    if snapshot_status is None:
+        return None
+
+    freshness = "fresh" if snapshot_status.get("is_fresh") else "stale"
+    if not snapshot_status.get("has_snapshot"):
+        freshness = "missing"
+    return (
+        "Market snapshot",
+        (
+            f"{freshness}; {snapshot_status.get('market_count', 0)} markets from "
+            f"{snapshot_status.get('events_seen', 0)} events; "
+            f"last refresh {format_epoch(snapshot_status.get('fetched_at_epoch'))}"
+        ),
+        snapshot_status.get("last_refresh_error"),
+    )
+
+
+def _render_data_source_rows(rows: list[tuple[str, str]]) -> None:
+    row_html = "\n".join(
+        (
+            "<div class='data-source-row'>"
+            f"<div class='data-source-label'>{label}</div>"
+            f"<div class='data-source-detail'>{detail}</div>"
+            "</div>"
+        )
+        for label, detail in rows
+    )
+    st.markdown(
+        (
+            f"{DATA_SOURCE_STYLE}\n"
+            "<div class='data-source-panel'>\n"
+            "  <div class='data-source-title'>Data sources</div>\n"
+            "  <div class='data-source-grid'>\n"
+            f"{row_html}\n"
+            "  </div>\n"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_runtime_status(
+    predictor: MatchupPredictor,
+    signal_status: dict | None = None,
+) -> None:
+    rows: list[tuple[str, str]] = []
+    score_label, score_detail, score_error = live_score_status_parts(predictor)
+    rows.append((score_label, score_detail))
+
+    if score_error:
+        st.warning(f"{score_label}: {score_detail}. Last refresh error: {score_error}")
+
+    market_parts = polymarket_status_parts(predictor)
+    if market_parts:
+        market_label, market_detail, market_error = market_parts
+        rows.append((market_label, market_detail))
+        if market_error:
+            st.warning(f"{market_label}: {market_detail}. Last refresh error: {market_error}")
+
+    if signal_status:
+        market_hits = signal_status.get("market_hits", 0)
+        fallback_hits = signal_status.get("fallback_hits", 0)
+        actual_score_hits = signal_status.get("actual_score_hits", 0)
+        rows.append(
+            (
+                "Prediction signals",
+                f"market data in {market_hits} branches; FIFA fallback in {fallback_hits} branches",
+            )
+        )
+        rows.append(("Actual scores", f"used in {actual_score_hits} branches"))
+
+    _render_data_source_rows(rows)
+
+
+def clear_prediction_caches(strength_mode: str, market_ttl_seconds: float) -> None:
+    get_prediction_cache(strength_mode, market_ttl_seconds).clear()
+    if (
+        strength_mode != DEFAULT_STRENGTH_MODE
+        or market_ttl_seconds != DEFAULT_MARKET_TTL_SECONDS
+    ):
+        get_prediction_cache(DEFAULT_STRENGTH_MODE, DEFAULT_MARKET_TTL_SECONDS).clear()
+
+
+def render_admin_controls() -> None:
+    st.set_page_config(page_title="MatchupIQ Admin", page_icon="⚽", layout="centered")
+    st.title("MatchupIQ Admin")
+
+    if hasattr(st, "segmented_control"):
+        strength_mode = st.segmented_control(
+            "Strength mode",
+            options=["market", "hybrid", "fifa"],
+            default=DEFAULT_STRENGTH_MODE,
+            key="admin_strength_mode_control",
+        )
+    else:
+        strength_mode = st.radio(
+            "Strength mode",
+            options=["market", "hybrid", "fifa"],
+            index=0,
+            horizontal=True,
+            key="admin_strength_mode_control",
+        )
+    strength_mode = str(strength_mode or DEFAULT_STRENGTH_MODE)
+    market_ttl_seconds = float(
+        st.number_input(
+            "Market TTL seconds",
+            min_value=60,
+            max_value=7200,
+            value=int(DEFAULT_MARKET_TTL_SECONDS),
+            step=60,
+            key="admin_market_ttl_seconds_input",
+            disabled=strength_mode == "fifa",
+        )
+    )
+
+    predictor = get_predictor(strength_mode, market_ttl_seconds)
+    refresh_col1, refresh_col2 = st.columns(2)
+    with refresh_col1:
+        refresh_market_clicked = st.button(
+            "Refresh market",
+            key="admin_refresh_polymarket_button",
+            disabled=strength_mode == "fifa",
+            use_container_width=True,
+        )
+    with refresh_col2:
+        refresh_scores_clicked = st.button(
+            "Refresh scores",
+            key="admin_refresh_scores_button",
+            use_container_width=True,
+        )
+
+    if refresh_market_clicked:
+        try:
+            predictor.refresh_polymarket_snapshot()
+            st.success("Polymarket snapshot refreshed.")
+        except Exception as exc:
+            st.error(f"Polymarket refresh failed: {exc}")
+
+    if refresh_scores_clicked:
+        try:
+            predictor.refresh_live_scores()
+            clear_prediction_caches(strength_mode, market_ttl_seconds)
+            st.success("Live scores refreshed.")
+        except Exception as exc:
+            st.error(f"Live score refresh failed: {exc}")
+
+    render_runtime_status(predictor)
 
 
 def get_round_label(match: dict) -> str:
@@ -213,97 +472,9 @@ def render_matchup_predictor() -> None:
         )
     include_group_stage = st.checkbox("Include group stage matches", value=False)
 
-    signal_col1, signal_col2, signal_col3, signal_col4 = st.columns([1.2, 1.0, 1.0, 1.0])
-    with signal_col1:
-        if hasattr(st, "segmented_control"):
-            strength_mode = st.segmented_control(
-                "Strength mode",
-                options=["market", "hybrid", "fifa"],
-                default="market",
-                key="strength_mode_control",
-            )
-        else:
-            strength_mode = st.radio(
-                "Strength mode",
-                options=["market", "hybrid", "fifa"],
-                index=0,
-                horizontal=True,
-                key="strength_mode_control",
-            )
-        strength_mode = str(strength_mode or "market")
-    with signal_col2:
-        market_ttl_seconds = float(
-            st.number_input(
-                "Market TTL seconds",
-                min_value=60,
-                max_value=7200,
-                value=900,
-                step=60,
-                key="market_ttl_seconds_input",
-                disabled=strength_mode == "fifa",
-            )
-        )
+    strength_mode = DEFAULT_STRENGTH_MODE
+    market_ttl_seconds = DEFAULT_MARKET_TTL_SECONDS
     predictor = get_predictor(strength_mode, market_ttl_seconds)
-    with signal_col3:
-        refresh_clicked = st.button(
-            "Refresh market",
-            key="refresh_polymarket_button",
-            disabled=strength_mode == "fifa",
-            use_container_width=True,
-        )
-    with signal_col4:
-        refresh_scores_clicked = st.button(
-            "Refresh scores",
-            key="refresh_scores_button",
-            use_container_width=True,
-        )
-
-    if refresh_clicked:
-        try:
-            predictor.refresh_polymarket_snapshot()
-            st.success("Polymarket snapshot refreshed.")
-        except Exception as exc:
-            st.error(f"Polymarket refresh failed: {exc}")
-
-    if refresh_scores_clicked:
-        try:
-            predictor.refresh_live_scores()
-            get_prediction_cache(strength_mode, market_ttl_seconds).clear()
-            st.success("Live scores refreshed.")
-        except Exception as exc:
-            st.error(f"Live score refresh failed: {exc}")
-
-    score_status = predictor.live_score_status()
-    score_freshness = "available" if score_status.get("has_snapshot") else "missing"
-    score_status_text = (
-        f"Live scores: {score_freshness}; "
-        f"{score_status.get('matched_count', 0)} matched, "
-        f"{score_status.get('completed_count', 0)} completed, "
-        f"{score_status.get('unmatched_count', 0)} unmatched; "
-        f"last refresh {format_epoch(score_status.get('fetched_at_epoch'))}."
-    )
-    score_error = score_status.get("last_refresh_error")
-    if score_error:
-        st.warning(f"{score_status_text} Last refresh error: {score_error}")
-    else:
-        st.caption(score_status_text)
-
-    snapshot_status = predictor.polymarket_snapshot_status()
-    if snapshot_status is not None:
-        freshness = "fresh" if snapshot_status.get("is_fresh") else "stale"
-        if not snapshot_status.get("has_snapshot"):
-            freshness = "missing"
-        status_text = (
-            f"Polymarket snapshot: {freshness}; "
-            f"{snapshot_status.get('market_count', 0)} markets from "
-            f"{snapshot_status.get('events_seen', 0)} events; "
-            f"last refresh {format_epoch(snapshot_status.get('fetched_at_epoch'))}."
-        )
-        last_error = snapshot_status.get("last_refresh_error")
-        if last_error:
-            st.warning(f"{status_text} Last refresh error: {last_error}")
-        else:
-            st.caption(status_text)
 
     filtered_schedule = schedule
     if not include_group_stage:
@@ -415,19 +586,6 @@ def render_matchup_predictor() -> None:
     result = prediction_cache.get_prediction(selected)
 
     st.info("Top 10 predicted matchups")
-    if result.signal_status:
-        mode = result.signal_status.get("strength_mode", strength_mode)
-        market_hits = result.signal_status.get("market_hits", 0)
-        fallback_hits = result.signal_status.get("fallback_hits", 0)
-        if result.signal_status.get("fallback_visible"):
-            st.warning(
-                f"Mode: {mode}. Market data was used in {market_hits} branches; "
-                f"FIFA fallback was used in {fallback_hits} branches."
-            )
-        else:
-            st.caption(
-                f"Mode: {mode}. Market branches: {market_hits}; fallback branches: {fallback_hits}."
-            )
     for candidate in result.top_candidates:
         home_flag = team_to_flag.get(candidate.home_team)
         away_flag = team_to_flag.get(candidate.away_team)
@@ -449,6 +607,7 @@ def render_matchup_predictor() -> None:
             ),
             unsafe_allow_html=True,
         )
+    render_runtime_status(predictor, result.signal_status)
 
 
 def main() -> None:

@@ -369,6 +369,15 @@ class WorldRankingTournamentSimulator:
             for match in self.world_cup_data.get("schedule", [])
             if isinstance(match.get("match_number"), int)
         }
+        self.actual_score_hits = 0
+
+    def reset_usage(self) -> None:
+        """Clear per-prediction simulator usage counters."""
+        self.actual_score_hits = 0
+
+    def usage_summary(self) -> dict[str, int]:
+        """Return user-facing simulator source usage metadata."""
+        return {"actual_score_hits": self.actual_score_hits}
 
     def _load_model_config(
         self,
@@ -608,6 +617,7 @@ class WorldRankingTournamentSimulator:
             for table, state_probability in states:
                 outcomes: list[tuple[str, str, MatchOutcome]]
                 if fixed_result is not None:
+                    self.actual_score_hits += 1
                     outcomes = [
                         (
                             fixed_result.home_team,
@@ -848,6 +858,7 @@ class WorldRankingTournamentSimulator:
             return memo[key]
         fixed_result = self._played_result(match_number)
         if fixed_result is not None:
+            self.actual_score_hits += 1
             if fixed_result.home_goals == fixed_result.away_goals:
                 memo[key] = {}
                 return memo[key]
@@ -913,6 +924,7 @@ class WorldRankingTournamentSimulator:
             return memo[key]
         fixed_result = self._played_result(match_number)
         if fixed_result is not None:
+            self.actual_score_hits += 1
             if fixed_result.home_goals == fixed_result.away_goals:
                 memo[key] = {}
                 return memo[key]
@@ -1021,6 +1033,7 @@ class WorldRankingTournamentSimulator:
         min_branch_probability: float | None = None,
     ) -> list[tuple[str, str, float]]:
         """Return the most likely matchups for the requested scheduled match."""
+        self.reset_usage()
         group_beam_width = (
             self.model_config.prediction_group_beam_width
             if group_beam_width is None
