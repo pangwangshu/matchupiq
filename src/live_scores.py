@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
-
-import httpx
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 try:
     from src.team_name_normalization import TeamNameNormalizer
@@ -121,10 +121,11 @@ class FootballDataLiveScoreFetcher:
 
     def fetch_matches(self) -> list[dict[str, Any]]:
         headers = {"X-Auth-Token": self._api_token()}
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            response = client.get(self.base_url, params={"season": self.season}, headers=headers)
-            response.raise_for_status()
-            payload = response.json()
+        separator = "&" if "?" in self.base_url else "?"
+        url = f"{self.base_url}{separator}{urlencode({'season': self.season})}"
+        request = Request(url, headers=headers, method="GET")
+        with urlopen(request, timeout=self.timeout_seconds) as response:
+            payload = json.load(response)
         matches = payload.get("matches", [])
         if not isinstance(matches, list):
             raise RuntimeError("football-data.org response did not contain a matches list.")
