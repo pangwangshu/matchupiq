@@ -219,6 +219,7 @@ Live score snapshots are cached in `data/live_results_2026.json`. Failed refresh
 Run tests:
 
 ```powershell
+pip install -r requirements-dev.txt
 pytest -q tests
 ```
 
