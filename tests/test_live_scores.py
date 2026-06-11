@@ -101,6 +101,29 @@ def test_finished_match_with_missing_score_is_not_played() -> None:
     assert snapshot.results[1].played is False
 
 
+def test_non_dict_score_payload_is_treated_as_missing_score() -> None:
+    snapshot = build_live_score_snapshot(
+        provider_matches=[
+            {
+                "id": 1001,
+                "utcDate": "2026-06-11T19:00:00Z",
+                "status": "FINISHED",
+                "stage": "GROUP_STAGE",
+                "homeTeam": {"name": "Mexico"},
+                "awayTeam": {"name": "South Africa"},
+                "score": [],
+            }
+        ],
+        world_cup_data=_world_cup_data(),
+        normalizer=_normalizer(),
+        fetched_at_epoch=1.0,
+    )
+
+    assert snapshot.results[1].played is False
+    assert snapshot.results[1].home_goals is None
+    assert snapshot.results[1].away_goals is None
+
+
 def test_provider_team_aliases_normalize_to_local_names() -> None:
     snapshot = build_live_score_snapshot(
         provider_matches=[

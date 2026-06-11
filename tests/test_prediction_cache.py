@@ -109,6 +109,27 @@ def test_clear_drops_cached_predictions() -> None:
     assert second.top_candidates[0].score == 2.0
 
 
+def test_clear_drops_per_key_locks() -> None:
+    clock = FakeClock(start=100.0)
+    predictor = StubPredictor()
+    service = PredictionCacheService(
+        predictor=predictor,
+        ttl_seconds=900.0,
+        clock=clock.now,
+        max_refresh_workers=1,
+    )
+
+    service.get_prediction("82")
+    service.get_prediction("89")
+    with service._cache_lock:
+        assert len(service._key_locks) == 2
+
+    service.clear()
+
+    with service._cache_lock:
+        assert service._key_locks == {}
+
+
 def test_expired_hit_returns_stale_and_refreshes_in_background() -> None:
     clock = FakeClock(start=100.0)
     release_refresh = threading.Event()

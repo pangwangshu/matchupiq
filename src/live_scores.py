@@ -262,7 +262,10 @@ def build_live_score_snapshot(
             )
             continue
 
-        full_time = provider_match.get("score", {}).get("fullTime", {})
+        score_payload = provider_match.get("score")
+        if not isinstance(score_payload, dict):
+            score_payload = {}
+        full_time = score_payload.get("fullTime", {})
         if not isinstance(full_time, dict):
             full_time = {}
         home_goals = _to_int_or_none(full_time.get("home"))

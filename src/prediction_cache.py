@@ -94,6 +94,7 @@ class PredictionCacheService:
         """Drop all cached predictions after external result state changes."""
         with self._cache_lock:
             self._cache.clear()
+            self._key_locks.clear()
 
     def _get_key_lock(self, match_id: str) -> threading.Lock:
         with self._cache_lock:
