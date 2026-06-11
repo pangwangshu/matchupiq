@@ -172,6 +172,156 @@ def test_build_rule_based_pairs_narrows_with_played_results_state() -> None:
     assert all(home == "Germany" for home, _away in pairs)
 
 
+def test_live_results_are_merged_into_match_results_state() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {}
+
+        def load_live_results(self) -> dict:
+            return {
+                "results": {
+                    "1": {
+                        "match_number": 1,
+                        "status": "completed",
+                        "home_team": "Mexico",
+                        "away_team": "South Africa",
+                        "home_goals": 2,
+                        "away_goals": 1,
+                    }
+                }
+            }
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            return [p["name"] for p in world.get("participants", []) if p.get("name")]
+
+    result = MatchupPredictor(data_provider=StubDataProvider())._load_match_results_state()[1]
+
+    assert result.played is True
+    assert result.home_team == "Mexico"
+    assert result.away_team == "South Africa"
+    assert result.home_goals == 2
+    assert result.away_goals == 1
+
+
+def test_live_result_snapshot_narrows_rule_based_pairs() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {}
+
+        def load_live_results(self) -> dict:
+            return {
+                "results": {
+                    "74": {
+                        "match_number": 74,
+                        "status": "completed",
+                        "home_team": "Germany",
+                        "away_team": "Sweden",
+                        "home_goals": 2,
+                        "away_goals": 1,
+                    }
+                }
+            }
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            return [p["name"] for p in world.get("participants", []) if p.get("name")]
+
+    pairs = MatchupPredictor(data_provider=StubDataProvider())._build_rule_based_pairs(89)
+
+    assert pairs
+    assert all(home == "Germany" for home, _away in pairs)
+
+
+def test_manual_result_overrides_live_result_state() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {
+                "manual-1": {
+                    "match_number": 1,
+                    "status": "completed",
+                    "confirmed_home": "Mexico",
+                    "confirmed_away": "South Africa",
+                    "home_goals": 0,
+                    "away_goals": 0,
+                }
+            }
+
+        def load_live_results(self) -> dict:
+            return {
+                "results": {
+                    "1": {
+                        "match_number": 1,
+                        "status": "completed",
+                        "home_team": "Mexico",
+                        "away_team": "South Africa",
+                        "home_goals": 2,
+                        "away_goals": 1,
+                    }
+                }
+            }
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            return [p["name"] for p in world.get("participants", []) if p.get("name")]
+
+    result = MatchupPredictor(data_provider=StubDataProvider())._load_match_results_state()[1]
+
+    assert result.home_goals == 0
+    assert result.away_goals == 0
+
+
+def test_malformed_live_snapshot_does_not_crash_match_result_loading() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {}
+
+        def load_live_results(self) -> dict:
+            raise ValueError("malformed live snapshot")
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            return [p["name"] for p in world.get("participants", []) if p.get("name")]
+
+    assert MatchupPredictor(data_provider=StubDataProvider())._load_match_results_state() == {}
+
+
 class ExplodingSnapshotFetcher:
     calls = 0
 

@@ -213,7 +213,7 @@ def render_matchup_predictor() -> None:
         )
     include_group_stage = st.checkbox("Include group stage matches", value=False)
 
-    signal_col1, signal_col2, signal_col3 = st.columns([1.2, 1.0, 1.0])
+    signal_col1, signal_col2, signal_col3, signal_col4 = st.columns([1.2, 1.0, 1.0, 1.0])
     with signal_col1:
         if hasattr(st, "segmented_control"):
             strength_mode = st.segmented_control(
@@ -251,6 +251,12 @@ def render_matchup_predictor() -> None:
             disabled=strength_mode == "fifa",
             use_container_width=True,
         )
+    with signal_col4:
+        refresh_scores_clicked = st.button(
+            "Refresh scores",
+            key="refresh_scores_button",
+            use_container_width=True,
+        )
 
     if refresh_clicked:
         try:
@@ -258,6 +264,29 @@ def render_matchup_predictor() -> None:
             st.success("Polymarket snapshot refreshed.")
         except Exception as exc:
             st.error(f"Polymarket refresh failed: {exc}")
+
+    if refresh_scores_clicked:
+        try:
+            predictor.refresh_live_scores()
+            get_prediction_cache(strength_mode, market_ttl_seconds).clear()
+            st.success("Live scores refreshed.")
+        except Exception as exc:
+            st.error(f"Live score refresh failed: {exc}")
+
+    score_status = predictor.live_score_status()
+    score_freshness = "available" if score_status.get("has_snapshot") else "missing"
+    score_status_text = (
+        f"Live scores: {score_freshness}; "
+        f"{score_status.get('matched_count', 0)} matched, "
+        f"{score_status.get('completed_count', 0)} completed, "
+        f"{score_status.get('unmatched_count', 0)} unmatched; "
+        f"last refresh {format_epoch(score_status.get('fetched_at_epoch'))}."
+    )
+    score_error = score_status.get("last_refresh_error")
+    if score_error:
+        st.warning(f"{score_status_text} Last refresh error: {score_error}")
+    else:
+        st.caption(score_status_text)
 
     snapshot_status = predictor.polymarket_snapshot_status()
     if snapshot_status is not None:
