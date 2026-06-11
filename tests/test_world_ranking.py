@@ -133,6 +133,7 @@ def test_completed_knockout_match_narrows_candidate_space() -> None:
     constrained = constrained_simulator.predict_matchup_candidates(match_number=89, limit=10)
     assert constrained
     assert {home for home, _away, _score in constrained} == {"Germany"}
+    assert constrained_simulator.usage_summary()["actual_score_hits"] > 0
 
 
 def test_simulator_construction_without_fifa_payload_is_supported_and_deterministic() -> None:

@@ -251,6 +251,49 @@ def test_live_result_snapshot_narrows_rule_based_pairs() -> None:
     assert all(home == "Germany" for home, _away in pairs)
 
 
+def test_prediction_signal_status_counts_actual_score_branches() -> None:
+    base_predictor = MatchupPredictor()
+    world = base_predictor._load_world_cup_data()
+    fifa = base_predictor._load_fifa_ranking_data()
+
+    class StubDataProvider(MatchDataProvider):
+        def load_matches(self) -> dict:
+            return {}
+
+        def load_live_results(self) -> dict:
+            return {
+                "results": {
+                    "74": {
+                        "match_number": 74,
+                        "status": "completed",
+                        "home_team": "Germany",
+                        "away_team": "Sweden",
+                        "home_goals": 2,
+                        "away_goals": 1,
+                    }
+                }
+            }
+
+        def load_world_cup_data(self) -> dict:
+            return world
+
+        def load_fifa_ranking_data(self) -> dict:
+            return fifa
+
+        def load_participant_teams(self) -> list[str]:
+            return [p["name"] for p in world.get("participants", []) if p.get("name")]
+
+    predictor = MatchupPredictor(
+        data_provider=StubDataProvider(),
+        simulator_factory=FastTestWorldRankingSimulatorFactory(),
+    )
+
+    result = predictor.predict("89")
+
+    assert result.signal_status is not None
+    assert result.signal_status["actual_score_hits"] > 0
+
+
 def test_manual_result_overrides_live_result_state() -> None:
     base_predictor = MatchupPredictor()
     world = base_predictor._load_world_cup_data()

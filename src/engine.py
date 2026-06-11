@@ -471,6 +471,7 @@ class MatchupPredictor:
         signal_status = self._build_signal_status(
             world_cup_data=world_cup_data,
             pairwise_win_model=pairwise_win_model,
+            simulator=simulator,
         )
         self.last_signal_status = signal_status
         out: list[MatchupCandidate] = []
@@ -496,7 +497,13 @@ class MatchupPredictor:
         *,
         world_cup_data: dict,
         pairwise_win_model: PairwiseWinModel,
+        simulator: TournamentSimulator,
     ) -> dict:
+        simulator_usage = (
+            simulator.usage_summary()
+            if hasattr(simulator, "usage_summary")
+            else {"actual_score_hits": 0}
+        )
         if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
             status: dict = {
                 "strength_mode": self.simulator_factory.config.strength_mode,
@@ -504,16 +511,18 @@ class MatchupPredictor:
                 "fallback_hits": 0,
                 "fallback_reasons": {},
                 "fallback_visible": False,
+                "actual_score_hits": 0,
             }
             if hasattr(pairwise_win_model, "usage_summary"):
                 status.update(pairwise_win_model.usage_summary())
+            status.update(simulator_usage)
             snapshot_status = self.simulator_factory.polymarket_snapshot_status(
                 self._canonical_team_names(world_cup_data)
             )
             if snapshot_status is not None:
                 status["polymarket_snapshot"] = snapshot_status.to_dict()
             return status
-        return {"strength_mode": "custom"}
+        return {"strength_mode": "custom", **simulator_usage}
 
     def refresh_polymarket_snapshot(self) -> None:
         """Refresh the market snapshot when hybrid predictions are enabled."""
