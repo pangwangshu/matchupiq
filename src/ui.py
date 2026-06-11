@@ -268,7 +268,7 @@ def render_matchup_predictor() -> None:
     if refresh_scores_clicked:
         try:
             predictor.refresh_live_scores()
-            get_prediction_cache(strength_mode, market_ttl_seconds).clear()
+            get_prediction_cache.clear()
             st.success("Live scores refreshed.")
         except Exception as exc:
             st.error(f"Live score refresh failed: {exc}")

@@ -295,11 +295,8 @@ class MatchupPredictor:
         return self.data_provider.load_matches()
 
     def _load_live_results(self) -> dict:
-        loader = getattr(self.data_provider, "load_live_results", None)
-        if loader is None:
-            return {}
         try:
-            payload = loader()
+            payload = self.data_provider.load_live_results()
         except Exception:
             return {}
         return payload if isinstance(payload, dict) else {}
