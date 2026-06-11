@@ -265,6 +265,8 @@ def render_matchup_predictor() -> None:
         except Exception as exc:
             st.error(f"Polymarket refresh failed: {exc}")
 
+    if refresh_scores_clicked:
+        try:
             predictor.refresh_live_scores()
             get_prediction_cache(strength_mode, market_ttl_seconds).clear()
             st.success("Live scores refreshed.")
