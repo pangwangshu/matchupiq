@@ -37,7 +37,7 @@ DATA_SOURCE_STYLE = """
     margin-top: 1.35rem;
     padding-top: 1rem;
     border-top: 1px solid rgba(128, 128, 128, 0.24);
-    color: rgba(250, 250, 250, 0.72);
+    color: var(--text-color, #31333f);
   }
   .data-source-title {
     margin-bottom: 0.45rem;
@@ -45,7 +45,8 @@ DATA_SOURCE_STYLE = """
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: rgba(250, 250, 250, 0.62);
+    color: var(--text-color, #31333f);
+    opacity: 0.68;
   }
   .data-source-grid {
     display: grid;
@@ -61,24 +62,12 @@ DATA_SOURCE_STYLE = """
   }
   .data-source-label {
     font-weight: 700;
-    color: rgba(250, 250, 250, 0.86);
+    color: var(--text-color, #31333f);
+    opacity: 0.9;
   }
   .data-source-detail {
-    color: rgba(250, 250, 250, 0.64);
-  }
-  @media (prefers-color-scheme: light) {
-    .data-source-panel {
-      color: rgba(49, 51, 63, 0.72);
-    }
-    .data-source-title {
-      color: rgba(49, 51, 63, 0.62);
-    }
-    .data-source-label {
-      color: rgba(49, 51, 63, 0.88);
-    }
-    .data-source-detail {
-      color: rgba(49, 51, 63, 0.66);
-    }
+    color: var(--text-color, #31333f);
+    opacity: 0.72;
   }
   @media (max-width: 640px) {
     .data-source-row {
