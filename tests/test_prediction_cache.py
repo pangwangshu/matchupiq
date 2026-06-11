@@ -90,6 +90,46 @@ def test_cache_miss_then_fresh_hit_reuses_cached_value() -> None:
     assert second.top_candidates[0].score == 1.0
 
 
+def test_clear_drops_cached_predictions() -> None:
+    clock = FakeClock(start=100.0)
+    predictor = StubPredictor()
+    service = PredictionCacheService(
+        predictor=predictor,
+        ttl_seconds=900.0,
+        clock=clock.now,
+        max_refresh_workers=1,
+    )
+
+    first = service.get_prediction("82")
+    service.clear()
+    second = service.get_prediction("82")
+
+    assert predictor.call_count == 2
+    assert first.top_candidates[0].score == 1.0
+    assert second.top_candidates[0].score == 2.0
+
+
+def test_clear_drops_per_key_locks() -> None:
+    clock = FakeClock(start=100.0)
+    predictor = StubPredictor()
+    service = PredictionCacheService(
+        predictor=predictor,
+        ttl_seconds=900.0,
+        clock=clock.now,
+        max_refresh_workers=1,
+    )
+
+    service.get_prediction("82")
+    service.get_prediction("89")
+    with service._cache_lock:
+        assert len(service._key_locks) == 2
+
+    service.clear()
+
+    with service._cache_lock:
+        assert service._key_locks == {}
+
+
 def test_expired_hit_returns_stale_and_refreshes_in_background() -> None:
     clock = FakeClock(start=100.0)
     release_refresh = threading.Event()
@@ -221,4 +261,3 @@ def test_refresh_failure_keeps_stale_value_available() -> None:
         )
     )
     assert service.get_prediction("94").top_candidates[0].score == 1.0
-

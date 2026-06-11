@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 try:
+    from src.live_scores import LiveScoreSnapshotStatus, LiveScoreSnapshotStore
     from src.models import MatchupCandidate, PredictionResponse
     from src.polymarket import (
         GatewayPolymarketSnapshotFetcher,
@@ -26,6 +27,7 @@ try:
         WorldRankingTournamentSimulator,
     )
 except ModuleNotFoundError:
+    from live_scores import LiveScoreSnapshotStatus, LiveScoreSnapshotStore
     from models import MatchupCandidate, PredictionResponse
     from polymarket import (
         GatewayPolymarketSnapshotFetcher,
@@ -45,6 +47,7 @@ except ModuleNotFoundError:
     )
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "matches_2026.json"
+LIVE_RESULTS_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "live_results_2026.json"
 WORLD_CUP_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "worldcup_2026_static.json"
 FIFA_RANKING_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "fifa_men_ranking_static.json"
 StrengthMode = Literal["fifa", "hybrid", "market"]
@@ -55,6 +58,10 @@ class MatchDataProvider(Protocol):
 
     def load_matches(self) -> dict:
         """Return the current match metadata and any confirmed live results."""
+        ...
+
+    def load_live_results(self) -> dict:
+        """Return normalized fetched live results, if present."""
         ...
 
     def load_world_cup_data(self) -> dict:
@@ -106,6 +113,7 @@ class StaticJsonMatchDataProvider:
     """Reads tournament, match, and ranking data from local JSON snapshots."""
 
     matches_path: Path = DATA_PATH
+    live_results_path: Path = LIVE_RESULTS_DATA_PATH
     world_cup_path: Path = WORLD_CUP_DATA_PATH
     fifa_ranking_path: Path = FIFA_RANKING_DATA_PATH
 
@@ -113,6 +121,17 @@ class StaticJsonMatchDataProvider:
         """Load the UI/API match listing plus any live-result fields."""
         with self.matches_path.open("r", encoding="utf-8") as f:
             return json.load(f)
+
+    def load_live_results(self) -> dict:
+        """Load normalized fetched score data, ignoring missing or malformed snapshots."""
+        if not self.live_results_path.exists():
+            return {}
+        try:
+            with self.live_results_path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def load_world_cup_data(self) -> dict:
         """Load the canonical World Cup structure and schedule."""
@@ -260,11 +279,13 @@ class MatchupPredictor:
         data_provider: MatchDataProvider | None = None,
         simulator_factory: TournamentSimulatorFactory | None = None,
         runtime_config: PredictorRuntimeConfig | None = None,
+        live_score_snapshot_store: LiveScoreSnapshotStore | None = None,
     ) -> None:
         self.data_provider = data_provider or StaticJsonMatchDataProvider()
         if simulator_factory is not None and runtime_config is not None:
             raise ValueError("Pass either simulator_factory or runtime_config, not both.")
         self.simulator_factory = simulator_factory or WorldRankingSimulatorFactory(config=runtime_config)
+        self.live_score_snapshot_store = live_score_snapshot_store
         self.last_signal_status: dict | None = None
         self.group_form = GroupFormSignal()
         self.elo = EloStrengthSignal()
@@ -272,6 +293,13 @@ class MatchupPredictor:
 
     def _load_matches(self) -> dict:
         return self.data_provider.load_matches()
+
+    def _load_live_results(self) -> dict:
+        try:
+            payload = self.data_provider.load_live_results()
+        except Exception:
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def _load_participant_teams(self) -> list[str]:
         return self.data_provider.load_participant_teams()
@@ -307,8 +335,7 @@ class MatchupPredictor:
             return None
         return self._to_int_or_none(match.group(1))
 
-    def _load_match_results_state(self) -> dict[int, MatchResultState]:
-        payload = self._load_matches()
+    def _states_from_result_payload(self, payload: dict) -> dict[int, MatchResultState]:
         if not isinstance(payload, dict):
             return {}
 
@@ -342,6 +369,14 @@ class MatchupPredictor:
                 home_goals=home_goals,
                 away_goals=away_goals,
             )
+        return out
+
+    def _load_match_results_state(self) -> dict[int, MatchResultState]:
+        live_payload = self._load_live_results()
+        live_results = live_payload.get("results", {}) if isinstance(live_payload, dict) else {}
+        out = self._states_from_result_payload(live_results if isinstance(live_results, dict) else {})
+        manual = self._states_from_result_payload(self._load_matches())
+        out.update(manual)
         return out
 
     def _resolver(self) -> TournamentStructureResolver:
@@ -486,6 +521,33 @@ class MatchupPredictor:
         canonical_team_names = self._canonical_team_names(world_cup_data)
         if isinstance(self.simulator_factory, WorldRankingSimulatorFactory):
             self.simulator_factory.refresh_polymarket_snapshot(canonical_team_names)
+
+    def _ensure_live_score_snapshot_store(self) -> LiveScoreSnapshotStore:
+        if self.live_score_snapshot_store is None:
+            self.live_score_snapshot_store = LiveScoreSnapshotStore(snapshot_path=LIVE_RESULTS_DATA_PATH)
+        return self.live_score_snapshot_store
+
+    def refresh_live_scores(self) -> dict:
+        """Fetch and persist the latest normalized World Cup score snapshot."""
+        world_cup_data = self._load_world_cup_data()
+        normalizer = TeamNameNormalizer.build(canonical_names=self._canonical_team_names(world_cup_data))
+        store = self._ensure_live_score_snapshot_store()
+        snapshot = store.refresh_now(world_cup_data=world_cup_data, normalizer=normalizer)
+        return {
+            "provider": snapshot.provider,
+            "has_snapshot": True,
+            "fetched_at_epoch": snapshot.fetched_at_epoch,
+            "matched_count": len(snapshot.results),
+            "completed_count": snapshot.completed_count,
+            "unmatched_count": len(snapshot.unmatched_provider_matches),
+            "last_refresh_attempt_at": snapshot.fetched_at_epoch,
+            "last_refresh_error": None,
+        }
+
+    def live_score_status(self) -> dict:
+        """Return current live-score cache state for UI/API status surfaces."""
+        status: LiveScoreSnapshotStatus = self._ensure_live_score_snapshot_store().status()
+        return status.to_dict()
 
     def polymarket_snapshot_status(self) -> dict | None:
         """Return current Polymarket cache state for UI/API status surfaces."""

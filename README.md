@@ -50,6 +50,12 @@ uvicorn src.api:app --reload
 streamlit run src/ui.py
 ```
 
+For live World Cup score refreshes, create a football-data.org API token and set:
+
+```powershell
+$env:FOOTBALL_DATA_TOKEN = "<your token>"
+```
+
 ## API
 
 ### Health Check
@@ -99,6 +105,17 @@ Notes:
 - `match_id` should match a key understood by the app. In practice, the prediction engine is designed around scheduled World Cup `match_number` values such as `"74"` or `"82"`.
 - The API currently returns `status="predicted"` for prediction responses.
 - Group-stage matches are fixed in the UI and do not require probabilistic prediction.
+
+### Live Score Refresh
+
+`POST /refresh-scores`
+
+Fetches the latest football-data.org World Cup scores into `data/live_results_2026.json` and clears cached
+predictions.
+
+`GET /score-status`
+
+Returns score snapshot status, including matched, completed, unmatched, and last-error counts.
 
 ## UI
 
@@ -194,6 +211,8 @@ Current behavior:
 - retry cooldown after refresh failures
 
 Polymarket snapshots are cached separately in `PolymarketSnapshotStore`, including disk persistence of the last known good snapshot.
+
+Live score snapshots are cached in `data/live_results_2026.json`. Failed refreshes keep the last known good snapshot.
 
 ## Development
 

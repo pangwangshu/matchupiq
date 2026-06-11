@@ -29,8 +29,18 @@ def refresh_market_signal_on_startup() -> None:
         logger.exception("startup_polymarket_refresh_failed")
 
 
+def refresh_live_scores_on_startup() -> None:
+    """Best-effort startup refresh for the latest World Cup scores."""
+    try:
+        predictor.refresh_live_scores()
+        prediction_cache.clear()
+    except Exception:
+        logger.exception("startup_live_score_refresh_failed")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    refresh_live_scores_on_startup()
     refresh_market_signal_on_startup()
     yield
 
@@ -49,3 +59,18 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
         return prediction_cache.get_prediction(payload.match_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/refresh-scores")
+def refresh_scores() -> dict:
+    try:
+        status = predictor.refresh_live_scores()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    prediction_cache.clear()
+    return status
+
+
+@app.get("/score-status")
+def score_status() -> dict:
+    return predictor.live_score_status()

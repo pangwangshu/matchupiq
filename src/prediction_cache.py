@@ -90,6 +90,12 @@ class PredictionCacheService:
             logger.info("cache_store match_id=%s ttl_seconds=%s", match_id, self.ttl_seconds)
             return value
 
+    def clear(self) -> None:
+        """Drop all cached predictions after external result state changes."""
+        with self._cache_lock:
+            self._cache.clear()
+            self._key_locks.clear()
+
     def _get_key_lock(self, match_id: str) -> threading.Lock:
         with self._cache_lock:
             lock = self._key_locks.get(match_id)
