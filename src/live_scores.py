@@ -290,7 +290,7 @@ def build_live_score_snapshot(
 
     return LiveScoreSnapshot(
         provider=provider,
-        fetched_at_epoch=fetched_at_epoch or time.time(),
+        fetched_at_epoch=fetched_at_epoch if fetched_at_epoch is not None else time.time(),
         results=results,
         unmatched_provider_matches=unmatched,
     )
