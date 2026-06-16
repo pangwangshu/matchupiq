@@ -141,6 +141,90 @@ def test_gateway_fetcher_defaults_to_current_world_cup_slug() -> None:
     assert fetcher.league_slug == "fwc"
 
 
+def test_gateway_fetcher_ignores_future_start_and_end_dates_for_market_recency() -> None:
+    from src.team_name_normalization import TeamNameNormalizer
+
+    fetcher = GatewayPolymarketSnapshotFetcher(
+        normalizer=TeamNameNormalizer.build(canonical_names=["Mexico", "South Africa"]),
+        time_source=lambda: 1234.0,
+    )
+    snapshot = fetcher.snapshot_from_events(
+        [
+            {
+                "title": "Mexico vs. South Africa",
+                "startDate": "2099-07-01T12:00:00Z",
+                "endDate": "2099-07-01T14:00:00Z",
+                "markets": [
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 1,
+                        "bestBidQuote": {"value": "0.45"},
+                        "bestAskQuote": {"value": "0.47"},
+                    },
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 2,
+                        "bestBidQuote": {"value": "0.26"},
+                        "bestAskQuote": {"value": "0.28"},
+                    },
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 3,
+                        "bestBidQuote": {"value": "0.28"},
+                        "bestAskQuote": {"value": "0.30"},
+                    },
+                ],
+            }
+        ]
+    )
+
+    selection = snapshot.market_selections_by_pair[("Mexico", "South Africa")]
+    assert selection.updated_at_epoch is None
+    assert snapshot.fetched_at_epoch == 1234.0
+
+
+def test_gateway_fetcher_prefers_true_updated_timestamp_over_schedule_dates() -> None:
+    from src.team_name_normalization import TeamNameNormalizer
+
+    fetcher = GatewayPolymarketSnapshotFetcher(
+        normalizer=TeamNameNormalizer.build(canonical_names=["Mexico", "South Africa"]),
+        time_source=lambda: 1234.0,
+    )
+    snapshot = fetcher.snapshot_from_events(
+        [
+            {
+                "title": "Mexico vs. South Africa",
+                "updatedAt": "2026-06-16T12:34:56Z",
+                "startDate": "2099-07-01T12:00:00Z",
+                "endDate": "2099-07-01T14:00:00Z",
+                "markets": [
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 1,
+                        "bestBidQuote": {"value": "0.45"},
+                        "bestAskQuote": {"value": "0.47"},
+                    },
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 2,
+                        "bestBidQuote": {"value": "0.26"},
+                        "bestAskQuote": {"value": "0.28"},
+                    },
+                    {
+                        "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_DRAWABLE_OUTCOME",
+                        "sortOrder": 3,
+                        "bestBidQuote": {"value": "0.28"},
+                        "bestAskQuote": {"value": "0.30"},
+                    },
+                ],
+            }
+        ]
+    )
+
+    selection = snapshot.market_selections_by_pair[("Mexico", "South Africa")]
+    assert selection.updated_at_epoch == 1781613296.0
+
+
 def test_hybrid_pairwise_falls_back_when_snapshot_missing() -> None:
     snapshot_store = PolymarketSnapshotStore(
         fetcher=StubSnapshotFetcher([]),
@@ -189,6 +273,45 @@ def test_hybrid_pairwise_falls_back_when_market_is_stale() -> None:
 
     assert probability == 0.61
     assert fallback.knockout_calls == 1
+
+
+def test_hybrid_pairwise_uses_snapshot_fetch_time_when_market_update_time_missing() -> None:
+    selection = PolymarketMarketSelection(
+        probabilities=ThreeWayProbability(home_win=0.5, draw=0.25, away_win=0.25),
+        max_spread=0.05,
+        liquidity=1000.0,
+        updated_at_epoch=None,
+    )
+    snapshot = PolymarketSnapshot(
+        fetched_at_epoch=time.time(),
+        events_seen=1,
+        market_selections_by_pair={("Mexico", "South Africa"): selection},
+    )
+    snapshot_store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([snapshot]),
+        cache_path=None,
+        auto_refresh_on_access=False,
+    )
+    snapshot_store.refresh_now()
+
+    fallback = RecordingFallbackPairwiseWinModel()
+    hybrid = HybridPairwiseWinModel(
+        snapshot_store,
+        fallback=fallback,
+        max_market_age_seconds=900.0,
+    )
+
+    probability = hybrid.knockout_home_win_probability(
+        "Mexico",
+        "South Africa",
+        MatchContext(match_number=82, stage="round_of_16", date="2026-07-04", group=None),
+        team_power_model=FixedTeamPowerModel(),
+        model_config=WorldRankingModelConfig(),
+        draw_band=20.0,
+    )
+
+    assert probability != 0.61
+    assert fallback.knockout_calls == 0
 
 
 def test_snapshot_store_preserves_last_known_good_when_refresh_fails(tmp_path: Path) -> None:
