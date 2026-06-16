@@ -263,7 +263,7 @@ class GatewayPolymarketSnapshotFetcher:
         for source in [event, *markets]:
             if not isinstance(source, dict):
                 continue
-            for key in ("updatedAt", "updated_at", "lastUpdated", "endDate", "startDate"):
+            for key in ("updatedAt", "updated_at", "lastUpdated"):
                 timestamp = _parse_iso_datetime_to_epoch(source.get(key))
                 if timestamp is not None:
                     candidates.append(timestamp)
@@ -320,10 +320,9 @@ class GatewayPolymarketSnapshotFetcher:
             updated_at_epoch=self._extract_updated_at_epoch(event, [by_order[1], by_order[2], by_order[3]]),
         )
 
-    def fetch_snapshot(self) -> PolymarketSnapshot:
-        """Fetch all usable market selections for the configured league."""
-        market_selections_by_pair: dict[tuple[str, str], PolymarketMarketSelection] = {}
-        events_seen = 0
+    def fetch_events(self) -> list[dict[str, Any]]:
+        """Fetch raw league events from the Polymarket gateway."""
+        events_seen: list[dict[str, Any]] = []
         offset = 0
         while True:
             payload = self._fetch_json(
@@ -333,25 +332,33 @@ class GatewayPolymarketSnapshotFetcher:
             events = payload.get("events", [])
             if not isinstance(events, list) or not events:
                 break
-
-            for event in events:
-                if not isinstance(event, dict):
-                    continue
-                events_seen += 1
-                pair = self._parse_event_pair(str(event.get("title", "")))
-                if pair is None:
-                    continue
-                selection = self._event_market_selection(event)
-                if selection is None:
-                    continue
-                market_selections_by_pair[pair] = selection
+            events_seen.extend(event for event in events if isinstance(event, dict))
             offset += self.page_size
+        return events_seen
+
+    def snapshot_from_events(self, events: list[dict[str, Any]]) -> PolymarketSnapshot:
+        """Build a normalized snapshot from previously fetched raw events."""
+        market_selections_by_pair: dict[tuple[str, str], PolymarketMarketSelection] = {}
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            pair = self._parse_event_pair(str(event.get("title", "")))
+            if pair is None:
+                continue
+            selection = self._event_market_selection(event)
+            if selection is None:
+                continue
+            market_selections_by_pair[pair] = selection
 
         return PolymarketSnapshot(
             fetched_at_epoch=self.time_source(),
-            events_seen=events_seen,
+            events_seen=len([event for event in events if isinstance(event, dict)]),
             market_selections_by_pair=market_selections_by_pair,
         )
+
+    def fetch_snapshot(self) -> PolymarketSnapshot:
+        """Fetch all usable market selections for the configured league."""
+        return self.snapshot_from_events(self.fetch_events())
 
 
 @dataclass
