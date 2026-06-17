@@ -427,6 +427,31 @@ def test_snapshot_store_loads_last_known_good_from_disk(tmp_path: Path) -> None:
     assert restored_snapshot.market_selections_by_pair[("Mexico", "South Africa")].probabilities.away_win == 0.30
 
 
+def test_snapshot_store_reloads_snapshot_written_after_store_initialization(tmp_path: Path) -> None:
+    cache_path = tmp_path / "polymarket_snapshot.json"
+    waiting_store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([]),
+        cache_path=cache_path,
+        auto_refresh_on_access=False,
+    )
+    assert waiting_store.status().has_snapshot is False
+
+    fresh_snapshot = _snapshot(_selection(home_win=0.48, draw=0.22, away_win=0.30))
+    writer_store = PolymarketSnapshotStore(
+        fetcher=StubSnapshotFetcher([fresh_snapshot]),
+        cache_path=cache_path,
+        auto_refresh_on_access=False,
+    )
+    writer_store.refresh_now()
+
+    status = waiting_store.status()
+    assert status.has_snapshot is True
+    assert status.market_count == 1
+    reloaded_snapshot = waiting_store.get_snapshot()
+    assert reloaded_snapshot is not None
+    assert reloaded_snapshot.market_selections_by_pair[("Mexico", "South Africa")].probabilities.home_win == 0.48
+
+
 def test_market_mode_usage_summary_marks_visible_fallback() -> None:
     snapshot_store = PolymarketSnapshotStore(
         fetcher=StubSnapshotFetcher([]),

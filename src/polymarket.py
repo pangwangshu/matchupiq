@@ -430,6 +430,7 @@ class PolymarketSnapshotStore:
         self._refresh_executor: ThreadPoolExecutor | None = None
         self._last_refresh_attempt_at: float | None = None
         self._last_refresh_error: str | None = None
+        self._cache_mtime: float | None = None
         self._entry: SnapshotCacheEntry | None = self._load_cache_entry()
 
     def _snapshot_has_market_data(self, snapshot: PolymarketSnapshot) -> bool:
@@ -445,6 +446,7 @@ class PolymarketSnapshotStore:
         if self.cache_path is None or not self.cache_path.exists():
             return None
         try:
+            self._cache_mtime = self.cache_path.stat().st_mtime
             payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
             snapshot = PolymarketSnapshot.from_dict(payload)
             if not self._snapshot_has_market_data(snapshot):
@@ -459,6 +461,23 @@ class PolymarketSnapshotStore:
             serve_until_monotonic=now + self.serve_stale_ttl_seconds,
         )
 
+    def _maybe_reload_cache_entry_from_disk_locked(self) -> None:
+        if self.cache_path is None or not self.cache_path.exists():
+            return
+        if self._entry is not None and self._entry.refresh_in_flight:
+            return
+        try:
+            cache_mtime = self.cache_path.stat().st_mtime
+        except OSError:
+            return
+        if self._cache_mtime is not None and cache_mtime <= self._cache_mtime:
+            return
+
+        reloaded_entry = self._load_cache_entry()
+        if reloaded_entry is None:
+            return
+        self._entry = reloaded_entry
+
     def _store_snapshot(self, snapshot: PolymarketSnapshot) -> None:
         if self.cache_path is None:
             return
@@ -468,6 +487,7 @@ class PolymarketSnapshotStore:
                 json.dumps(snapshot.to_dict(), indent=2),
                 encoding="utf-8",
             )
+            self._cache_mtime = self.cache_path.stat().st_mtime
         except Exception:
             logger.exception("polymarket_cache_write_failed path=%s", self.cache_path)
 
@@ -475,6 +495,7 @@ class PolymarketSnapshotStore:
         """Return the freshest available snapshot, optionally triggering refresh."""
         now = self.clock()
         with self._lock:
+            self._maybe_reload_cache_entry_from_disk_locked()
             entry = self._entry
             if entry is not None:
                 if entry.fresh_until_monotonic > now:
@@ -535,6 +556,7 @@ class PolymarketSnapshotStore:
         """Return a serializable view of cache freshness and refresh state."""
         now = self.clock()
         with self._lock:
+            self._maybe_reload_cache_entry_from_disk_locked()
             entry = self._entry
             if entry is None:
                 return PolymarketSnapshotStatus(
