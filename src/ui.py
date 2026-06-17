@@ -338,6 +338,7 @@ def render_admin_controls() -> None:
     if refresh_market_clicked:
         try:
             predictor.refresh_polymarket_snapshot()
+            clear_prediction_caches(strength_mode, market_ttl_seconds)
             st.success("Polymarket snapshot refreshed.")
         except Exception as exc:
             st.error(f"Polymarket refresh failed: {exc}")
