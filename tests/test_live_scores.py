@@ -146,6 +146,42 @@ def test_provider_team_aliases_normalize_to_local_names() -> None:
     assert snapshot.results[2].away_team == "Germany"
 
 
+def test_cape_verde_islands_alias_matches_local_fixture() -> None:
+    snapshot = build_live_score_snapshot(
+        provider_matches=[
+            {
+                "id": 1003,
+                "utcDate": "2026-06-13T19:00:00Z",
+                "status": "FINISHED",
+                "stage": "GROUP_STAGE",
+                "homeTeam": {"name": "Spain"},
+                "awayTeam": {"name": "Cape Verde Islands"},
+                "score": {"fullTime": {"home": 1, "away": 1}},
+            }
+        ],
+        world_cup_data={
+            "schedule": [
+                {
+                    "match_number": 3,
+                    "date": "Saturday 13 June 2026",
+                    "stage": "group_stage",
+                    "matchup": "Spain vs Cape Verde",
+                }
+            ]
+        },
+        normalizer=TeamNameNormalizer.build(canonical_names=["Spain", "Cape Verde"]),
+        fetched_at_epoch=1.0,
+    )
+
+    assert snapshot.unmatched_provider_matches == []
+    result = snapshot.results[3]
+    assert result.played is True
+    assert result.home_team == "Spain"
+    assert result.away_team == "Cape Verde"
+    assert result.home_goals == 1
+    assert result.away_goals == 1
+
+
 def test_unmatched_provider_rows_are_reported_not_guessed() -> None:
     snapshot = build_live_score_snapshot(
         provider_matches=[
