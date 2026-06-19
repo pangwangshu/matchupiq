@@ -33,6 +33,7 @@ def test_team_name_normalizer_resolves_polymarket_aliases() -> None:
     assert normalizer.resolve("Cote d'Ivoire") == "Ivory Coast"
     assert normalizer.resolve("Curacao") == "Curaçao"
     assert normalizer.resolve("Cabo Verde") == "Cape Verde"
+    assert normalizer.resolve("Cape Verde Islands") == "Cape Verde"
     assert normalizer.resolve("Congo DR") == "DR Congo"
     assert normalizer.resolve("Bosnia-Herzegovina") == "Bosnia and Herzegovina"
 

@@ -5,7 +5,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Iterable
 
-# Polymarket team names observed to differ from local schedule naming.
+# External provider team names observed to differ from local schedule naming.
 DEFAULT_POLYMARKET_TEAM_ALIASES: dict[str, str] = {
     "turkiye": "Turkey",
     "ir iran": "Iran",
@@ -14,6 +14,7 @@ DEFAULT_POLYMARKET_TEAM_ALIASES: dict[str, str] = {
     "cote d ivoire": "Ivory Coast",
     "curacao": "Curaçao",
     "cabo verde": "Cape Verde",
+    "cape verde islands": "Cape Verde",
     "congo dr": "DR Congo",
     "bosnia herzegovina": "Bosnia and Herzegovina",
 }
@@ -69,4 +70,3 @@ class TeamNameNormalizer:
 
     def resolve(self, raw_name: str) -> str | None:
         return self.canonical_by_normalized.get(normalize_team_name(raw_name))
-
